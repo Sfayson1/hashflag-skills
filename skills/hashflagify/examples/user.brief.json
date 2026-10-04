@@ -1,0 +1,60 @@
+{
+ "login": "jeromehardaway",
+ "kind": "user",
+ "readme": "README.md",
+ "tag": ["JEROME HARDAWAY", "@MAVERICK", "USAF VETERAN", "FOUNDER, VETS WHO CODE"],
+ "links": [
+  ["VETSWHOCODE.IO", "https://vetswhocode.io"],
+  ["VWC GITHUB", "https://github.com/Vets-Who-Code"],
+  ["LINKEDIN", "https://www.linkedin.com/in/jeromehardaway"],
+  ["YOUTUBE", "https://www.youtube.com/@vetswhocode"],
+  ["PORTFOLIO", "https://jerome.codes"]
+ ],
+ "title_line": "FOUNDER & LEAD ENGINEER, VETS WHO CODE | AIR FORCE VETERAN | GOOGLE DEVELOPER EXPERT",
+ "bio": "I engineer the platforms, AI systems, and curriculum that turn veterans into software engineers.",
+ "unit": {
+  "title": "UNIT: VETS WHO CODE",
+  "sub": "EST. 2014 · VETERAN-LED 501(C)(3) SOFTWARE ENGINEERING ACCELERATOR",
+  "tiles": [["300+", "VETERANS TRAINED"], ["$20M+", "COLLECTIVE ALUMNI EARNINGS"], ["100%", "REMOTE AND FREE TO VETERANS"]],
+  "line": "TROOPS NOW SHIP CODE AT MICROSOFT, GOOGLE, AMAZON, AND HOME DEPOT",
+  "note": "I lead the org and engineer the systems that run it."
+ },
+ "ops": [
+  {"repo": "Vets-Who-Code/vets-who-code-app", "brief": "The TypeScript/Next.js platform behind vetswhocode.io and the accelerator."},
+  {"repo": "Vets-Who-Code/vetswhocode-vs-code-theme", "brief": "A VS Code theme in Vets Who Code colors."},
+  {"repo": "Vets-Who-Code/vets-who-code.github.io", "brief": "The VWC field manual: four playbooks from the terminal to production AI.", "title": "HASHFLAG PLAYBOOKS", "url": "https://vets-who-code.github.io/"},
+  {"repo": "Vets-Who-Code/Prework", "brief": "The on-ramp every prospective VWC troop completes."},
+  {"repo": "Vets-Who-Code/hashflag-skills", "brief": "The skill map behind the Hashflag Method curriculum."},
+  {"repo": "Vets-Who-Code/vetswhocode-extension-pack", "brief": "The VWC developer environment, out of the box."}
+ ],
+ "extra_ops": [
+  ["J0DI3", "VWC's AI career intelligence platform for veterans.", "CLOSED SOURCE", null],
+  ["OPEN SOURCE BOARD", "The Vets Who Code open source project board.", "CONTRIBUTIONS WELCOME", "https://github.com/orgs/Vets-Who-Code/projects/82"]
+ ],
+ "stack": [
+  ["LANGUAGES", "Python, TypeScript/JavaScript, SQL"],
+  ["AI/ML", "LangChain, LangGraph, LangSmith, RAG, agentic systems, MCP, Hugging Face, T5, Transformers.js, PyTorch, DeepSpeed"],
+  ["BACKEND", "FastAPI, Node.js, Pydantic"],
+  ["FRONTEND", "React, Next.js, TypeScript, Tailwind CSS, Framer Motion"],
+  ["CLOUD", "AWS, Azure, GCP (Vertex AI, BigQuery), Firebase"],
+  ["INFRA", "Terraform, Docker, Kubernetes, GitHub Actions"],
+  ["DATA", "PostgreSQL, Redis, BigQuery, Delta Lake"]
+ ],
+ "commendations": [
+  "Google Developer Expert",
+  "GitHub Star (alum)",
+  "White House workforce development recognition",
+  "Microsoft Global Hackathon winner",
+  "Master.dev (Frontend Masters) instructor: Getting a Software Engineering Job",
+  "LinkedIn Learning instructor",
+  "Stack Overflow Blog contributor"
+ ],
+ "featured": "Wired · Business Insider · HuffPost · Black Enterprise · GitHub ReadME · Stack Overflow",
+ "reports": [
+  ["JUNIOR TO SENIOR", "GITHUB README", "https://github.com/readme/guides/engineering-career-success"],
+  ["TEACHING IN PUBLIC", "GITHUB README", "https://github.com/readme/guides/teaching-with-github"],
+  ["LEARN HOW TO LEARN", "STACK OVERFLOW BLOG", "https://stackoverflow.blog/2020/01/11/hello-world-want-to-be-a-developer-learn-how-to-learn/"],
+  ["EMBRACE THE SUCK", "STACK OVERFLOW BLOG", "https://stackoverflow.blog/2020/02/10/hello-world-curing-imposter-syndrome-by-embracing-the-suck/"]
+ ],
+ "motto": "Impact Over Interference."
+}
