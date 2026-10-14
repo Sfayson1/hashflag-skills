@@ -1,0 +1,121 @@
+# Run: python3 test_skills.py   (synthetic data only; never put a real resume here)
+import json, os, subprocess, sys, tempfile
+from datetime import datetime, timedelta, timezone
+from fetch_postings import REF, build, cap, digest, split, term_re
+from score_skills import W_ONET, W_POSTINGS, checklist, composite, score
+import score as onet_scorer
+
+HERE = os.path.dirname(os.path.abspath(__file__))
+vocab = json.load(open(os.path.join(REF, "skills_vocab.json")))
+now = datetime.now(timezone.utc)
+
+# whole-word matching: Java is not JavaScript, SQL is not PostgreSQL, Go is case-sensitive
+assert not term_re("Java").search("JavaScript") and term_re("Java").search("Java/Kotlin")
+assert not term_re("SQL").search("PostgreSQL") and term_re("C++").search("C++ and Rust")
+assert term_re("Go", True).search("Go or Rust") and not term_re("Go", True).search("go to market")
+
+# required vs preferred split, boilerplate skipped (VWC heuristic)
+req, pref = split("<h3>Requirements</h3><ul><li>Python</li></ul><p><strong>Nice to have:</strong></p><ul><li>Kafka</li></ul>"
+                  "<h3>About us</h3><p>We build agents with Rust</p>")
+assert "Python" in req and "Kafka" in pref and "Rust" not in req + pref, (req, pref)
+
+
+def post(co, title, body, days=1):
+    return {"company": co, "title": title, "location": "Remote", "url": f"https://x/{co}/{title}", "board": "greenhouse",
+            "date": (now - timedelta(days=days)).isoformat(), "html": body}
+
+
+AI = "<h3>Requirements</h3><ul><li>Python, LangChain, LangGraph</li><li>Docker</li></ul><h3>Preferred</h3><ul><li>Rust, RAG</li></ul>"
+posts = [post(f"co{i}", "AI Engineer", AI) for i in range(30)]
+posts += [post("big", f"AI Engineer {i}", "<p>Python, OpenAI</p>") for i in range(40)]           # one company floods
+posts += [post("openai", "Applied AI Engineer", "<p>OpenAI API and Python</p>"),                  # vendor's own name
+          post("co0", "AI Engineer", AI),                                                         # duplicate
+          post("co1", "AI Engineering Manager", AI), post("co2", "AI Engineer Intern", AI),        # excluded titles
+          post("co3", "AI Engineer II", AI, days=90), post("co4", "Account Executive", AI)]         # too old, wrong lane
+p = build("ai", [("greenhouse", "x", posts, None), ("lever", "y", [], "HTTPError: 404")], vocab)
+by = {s["skill"]: s for s in p["skills"]}
+assert p["companies"] == 32 and p["failed_sources"] == [{"source": "lever/y", "error": "HTTPError: 404"}]
+assert max(sum(1 for x in p["postings"] if x["company"] == c) for c in ("big", "co0")) <= 0.15 * p["sample_size"]
+assert by["LangGraph"]["required_pct"] > 0 and by["RAG"]["preferred_pct"] > 0 and by["RAG"]["required_pct"] == 0
+assert by["OpenAI API"]["postings"] == sum(1 for x in p["postings"] if x["company"] == "big")  # openai's own posting not counted
+assert p["confidence"] == "OK" and p["digest"] == digest(p)
+assert cap([{"company": "a", "_date": None}] * 3, 0.15) == [{"company": "a", "_date": None}]  # one company: cap 1
+
+# scoring
+names = [s["skill"] for s in checklist(p)]
+ev = lambda st, q="Built it": {"strength": st, "evidence": "" if st == "none" else q}
+grade = lambda g: {"skills": [{"skill": n} | ev(g.get(n, "none")) for n in names]}
+assert score(p, grade({n: "proven" for n in names}), vocab)["score"] == 100
+assert score(p, grade({}), vocab)["score"] == 0
+
+# family rollup: LangGraph proven, LangChain absent → LangChain credited 0.7, tagged resume-fixable
+r = score(p, grade({"LangGraph": "proven", "Python": "listed", "Docker": "applied", "Rust": "stale"}), vocab)
+lc = next(x for x in r["rows"] if x["skill"] == "LangChain")
+assert lc["strength"] == 0.7 and lc["via"] == "LangGraph"
+assert next(x for x in r["add"] if x["skill"] == "LangChain")["tag"] == "resume-fixable"
+
+# PROVE IT and ADD sorted by lift; lifts add up to what's missing
+for k in ("prove_it", "add"):
+    assert [x["lift"] for x in r[k]] == sorted((x["lift"] for x in r[k]), reverse=True), k
+assert {x["skill"] for x in r["prove_it"]} == {"Python", "Docker", "Rust"}
+assert abs(r["score"] + sum(x["lift"] for x in r["rows"]) - 100) < 0.5
+
+# CUT: on the resume but under 2% demand; unknown skills reported, never scored
+low = dict(p, skills=p["skills"] + [{"skill": "PHP", "family": None, "postings": 1, "pct": 1.0, "required_pct": 1.0, "preferred_pct": 0}])
+c = score(low, {"skills": grade({})["skills"] + [{"skill": "PHP"} | ev("listed"), {"skill": "Cobol"} | ev("listed")]}, vocab)
+assert c["cut"] == [{"skill": "PHP", "pct": 1.0}] and c["not_in_vocab"] == ["Cobol"]
+
+# grading rules
+for bad, msg in [({"skills": []}, "Missing:"), ({"skills": [{"skill": "Python", "strength": "proven", "evidence": ""}]}, "no evidence"),
+                 ({"skills": [{"skill": "Python", "strength": "expert", "evidence": "x"}]}, "expert")]:
+    try:
+        score(p, bad, vocab); raise AssertionError(msg)
+    except ValueError as e:
+        assert msg in str(e), e
+try:
+    score(p, grade({"Python": "proven"}), vocab, "A resume that never says it."); raise AssertionError("quote")
+except ValueError as e:
+    assert "evidence is not on the resume" in str(e)
+
+# composite: one score from postings + O*NET; a skill in both sources gets both lifts
+onet = {"fetched_by": "fetch_market.py", "fetched_at": now.isoformat(), "role": "AI Engineer", "onet_code": "15-1252.00",
+        "onet_title": "Software Developers", "bls": {"period": "2024-2034", "growth_pct": 15}, "sources": {},
+        "tech_skills": [{"skill": "Python", "posting_pct": 30, "in_demand": True},
+                        {"skill": "Amazon Web Services AWS software", "posting_pct": 20, "in_demand": True}],
+        "core_skills": [{"skill": "Programming", "importance": 75, "type": "transferable"}]}
+both = {"skills": grade({"Python": "listed", "LangGraph": "proven"})["skills"]
+        + [{"skill": "AWS", "onet_name": "Amazon Web Services AWS software", "strength": "none", "evidence": ""},
+           {"skill": "Programming", "strength": "proven", "evidence": "Built it"}]}
+pr, orp = score(p, both, vocab), onet_scorer.score(onet, both)
+cr = composite(pr, orp, both, vocab)
+assert cr["score"] == round(W_POSTINGS * pr["score"] + W_ONET * orp["score"], 1)
+assert abs(cr["score"] + sum(x["lift"] for x in cr["items"]) - 100) < 1
+py = next(x for x in cr["items"] if x["skill"] == "Python")
+assert py["onet"] and py["lift"] == round(W_POSTINGS * next(r["lift"] for r in pr["rows"] if r["skill"] == "Python")
+                                          + W_ONET * next(r["impact"] for r in orp["all"] if r["skill"] == "Python"), 1)
+assert "Programming" in [x["skill"] for x in cr["strong"]] and cr["not_scored"] == []  # O*NET core item, not "unknown"
+assert [x["lift"] for x in cr["add"]] == sorted((x["lift"] for x in cr["add"]), reverse=True)
+
+
+def run(postings, resume_dir):
+    with tempfile.TemporaryDirectory() as t:
+        pp = os.path.join(t, "postings.json"); json.dump(postings, open(pp, "w"))
+        op = os.path.join(t, "onet.json"); json.dump(onet, open(op, "w"))
+        rp = os.path.join(resume_dir, "resume.json"); json.dump(both, open(rp, "w"))
+        return subprocess.run([sys.executable, os.path.join(HERE, "score_skills.py"), pp, rp, "--onet", op], capture_output=True, text=True)
+
+
+with tempfile.TemporaryDirectory() as clean:
+    assert run(p, clean).returncode == 0, run(p, clean).stderr
+    edited = json.loads(json.dumps(p)); edited["skills"][0]["pct"] = 99.0
+    assert "REFUSED: postings.json was edited" in run(edited, clean).stderr
+    assert "REFUSED: postings.json was not written by fetch_postings.py" in run(p | {"fetched_by": "me"}, clean).stderr
+    old = p | {"fetched_at": (now - timedelta(days=15)).isoformat()}
+    assert "days old" in run(old | {"digest": digest(old)}, clean).stderr
+
+with tempfile.TemporaryDirectory() as repo:  # a resume inside a git repo is refused
+    os.makedirs(os.path.join(repo, ".git")); os.makedirs(os.path.join(repo, "people"))
+    r = run(p, os.path.join(repo, "people"))
+    assert r.returncode != 0 and "REFUSED:" in r.stderr and "~/resume-scores/" in r.stderr, r.stderr
+
+print("ok")

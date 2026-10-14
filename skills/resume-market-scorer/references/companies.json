@@ -1,0 +1,16 @@
+{
+  "_note": "Slugs verified live 2026-10-14 (HTTP 200, at least one job). Re-verify when a source fails.",
+  "greenhouse": [
+    "databricks", "anthropic", "scaleai", "stripe", "airbnb", "robinhood", "instacart", "gitlab", "figma",
+    "cloudflare", "datadog", "mongodb", "coinbase", "discord", "dropbox", "pinterest", "reddit", "lyft",
+    "twilio", "asana", "brex", "affirm", "chime", "samsara", "elastic", "okta", "roblox", "duolingo",
+    "airtable", "vercel", "mercury", "gusto", "andurilindustries", "fivetran", "grafanalabs", "cockroachlabs",
+    "pagerduty", "togetherai", "waymo", "nuro", "sofi", "toast", "squarespace", "block", "flexport",
+    "navapbc", "codeforamerica", "skylighthq", "oddball", "raft", "agilesix", "bloomworks"
+  ],
+  "lever": ["palantir", "spotify", "shieldai", "zoox"],
+  "ashby": [
+    "openai", "ramp", "notion", "linear", "perplexity", "cursor", "cohere", "modal", "replit", "elevenlabs",
+    "supabase", "posthog", "harvey", "sierra", "snowflake", "runway", "primer"
+  ]
+}
