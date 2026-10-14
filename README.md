@@ -10,7 +10,17 @@ Skills and agents built at Vets Who Code that help nonprofits, job seekers and s
 | --- | --- |
 | [hashflagify](skills/hashflagify/SKILL.md) | Turns a user's `<login>/<login>` repo or an org's `.github` repo into a self-updating Mission Brief profile README in VWC colors. Live on [Vets-Who-Code](https://github.com/Vets-Who-Code) and [jeromehardaway](https://github.com/jeromehardaway). |
 
-Install one by copying its folder into `~/.claude/skills/`, then run `/hashflagify` inside the target repo.
+## Install
+
+In Claude Code:
+
+```
+/plugin install hashflag --marketplace Vets-Who-Code/hashflag-skills
+```
+
+Or copy one skill's folder into `~/.claude/skills/`. Node skills need Node 22.18 or later; if you load the plugin with `--plugin-dir` or copy a folder, run `npm ci` at the repo root once.
+
+Every content skill brings its own brand and keys: no Vets Who Code branding, keys or hosting are built in. The shared brand-pack format, paths, flags and key names are in [docs/contracts.md](docs/contracts.md).
 
 ## What's planned
 
@@ -44,8 +54,9 @@ New here? Start with [#9](https://github.com/Vets-Who-Code/hashflag-skills/issue
 
 - Branch off `main` and open a pull request. Don't commit to `main` directly.
 - Use [Conventional Commits](https://www.conventionalcommits.org/): `<type>(scope): Sentence-case subject`.
+- Run `npm test` before opening a pull request.
 - Never commit licensed fonts (for example Gilroy or Gotham Pro), API keys, or rendered media output.
 
 ## License
 
-Not chosen yet. The options and a recommended default are in [issue-1.md](docs/context/issue-1.md#open-decisions-for-the-owner), decision 1.
+Code is [Apache-2.0](LICENSE); see [NOTICE](NOTICE). Everything in `fixtures/` is [CC0 1.0](fixtures/LICENSE).

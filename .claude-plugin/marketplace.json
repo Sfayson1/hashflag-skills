@@ -1,0 +1,12 @@
+{
+  "name": "hashflag-skills",
+  "description": "Skills and agents built at Vets Who Code for nonprofits, job seekers and small businesses.",
+  "owner": { "name": "Vets Who Code", "url": "https://github.com/Vets-Who-Code" },
+  "plugins": [
+    {
+      "name": "hashflag",
+      "source": "./",
+      "description": "Content engine skills: one piece of writing to images, audio and video."
+    }
+  ]
+}
