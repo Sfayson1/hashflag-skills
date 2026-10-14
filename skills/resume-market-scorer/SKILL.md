@@ -86,7 +86,7 @@ python3 "${CLAUDE_SKILL_DIR}/scripts/score.py" onet.json resume.json --out repor
 It exits with a clear error if `onet_code` is missing or a strength isn't one of the five values above.
 
 Scoring (fixed — don't change per person):
-- **Technology Skills (70%)** — weight: Hot + In Demand = 3, Hot or In Demand = 2, neither = 1.
+- **Technology Skills (70%)** — only tools flagged Hot Technology or In Demand count. Weight: both = 3, one = 2. O*NET lists hundreds of tools per occupation, so scoring all of them would make a strong score unreachable. Unflagged tools still match; they just don't score.
 - **Core Skills/Knowledge (30%)** — weight = O*NET importance. Only items with importance ≥ 50 count.
 - **Score** = weighted evidence coverage, 0–100.
 - **BLS** is reported as lane outlook; it does not change the resume score.
@@ -113,7 +113,7 @@ Strengths
 Dead weight (on resume, not in O*NET for this occupation)
 - [Skill], [Skill]
 
-Listed in O*NET but below the importance cutoff (not scored): [Skill], [Skill]
+In O*NET but not scored (unflagged tool, or importance under 50): [Skill], [Skill]
 
 Sources: [O*NET link] · [BLS link]
 ```

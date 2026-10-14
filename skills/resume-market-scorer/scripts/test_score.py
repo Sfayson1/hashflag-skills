@@ -15,10 +15,14 @@ rep = score(onet, resume)
 
 # strongest evidence wins across aliases
 assert next(x for x in rep["all"] if x["skill"] == "Python")["strength"] == "proven"
-# a skill O*NET lists below the cutoff is not "dead weight"
+# a skill O*NET lists but doesn't score is not "dead weight"
 assert rep["dead_weight"] == ["Rust"], rep["dead_weight"]
-assert rep["below_importance_cutoff"] == ["Negotiation"]
-# gaps rank by score impact: one core skill outweighs any single tool among 81
+assert rep["in_onet_not_scored"] == ["Negotiation"]
+# only Hot or In Demand tools are scored (Tool0-9 and Python)
+assert len([x for x in rep["all"] if not x["flags"].startswith("importance")]) == 11
+plain = score(onet, {"skills": [{"skill": "Tool50", "strength": "proven"}]})
+assert plain["in_onet_not_scored"] == ["Tool50"] and plain["dead_weight"] == []
+# gaps rank by score impact: one core skill outweighs any single scored tool
 assert rep["top_gaps"][0]["skill"] == "Complex Problem Solving", rep["top_gaps"][0]
 # impacts add up: proving every gap would reach 100
 assert abs(rep["score"] + sum(x["impact"] for x in rep["all"]) - 100) < 0.5

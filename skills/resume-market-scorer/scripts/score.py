@@ -44,14 +44,17 @@ def score(o, r):
         if s.get("strength") not in STRENGTH:
             raise ValueError(f"resume.json: {s.get('skill')!r} has strength {s.get('strength')!r}; use one of {', '.join(STRENGTH)}")
 
-    tech = o.get("tech_skills", [])
+    # O*NET lists hundreds of tools per occupation; scoring against all of them makes 80+
+    # unreachable. Only Hot or In Demand tools are scored; the rest still match.
+    all_tech = o.get("tech_skills", [])
+    tech = [t for t in all_tech if t.get("hot") or t.get("in_demand")]
     all_core = o.get("core_skills", [])
     core = [c for c in all_core if c.get("importance", 0) >= CORE_MIN_IMPORTANCE]
 
-    # Match against every O*NET item, including core items below the cutoff, so a skill
-    # O*NET lists is never reported as "not in O*NET".
+    # Match against every O*NET item, scored or not, so a skill O*NET lists is never
+    # reported as "not in O*NET".
     alias = {}
-    for it in tech + all_core:
+    for it in all_tech + all_core:
         alias[norm(it["skill"])] = it["skill"]
         for al in it.get("aliases", []):
             alias[norm(al)] = it["skill"]
@@ -64,9 +67,9 @@ def score(o, r):
         if c not in ev or STRENGTH[s["strength"]] > STRENGTH[ev[c]["strength"]]:
             ev[c] = s
     scored = {it["skill"] for it in tech + core}
-    below_cutoff = sorted(c for c in ev if c not in scored)
+    not_scored = sorted(c for c in ev if c not in scored)
 
-    tech_w = lambda t: 1 + int(bool(t.get("hot"))) + int(bool(t.get("in_demand")))
+    tech_w = lambda t: 1 + int(bool(t.get("hot"))) + int(bool(t.get("in_demand")))  # 3 if both, else 2
     tech_score, trows = coverage(tech, tech_w, flags, ev, TECH_SHARE)
     core_score, crows = coverage(core, lambda c: c["importance"], lambda c: f"importance {c['importance']}", ev, CORE_SHARE)
     total = round(TECH_SHARE * tech_score + CORE_SHARE * core_score, 1)
@@ -81,7 +84,7 @@ def score(o, r):
         "unproven_claims": [x for x in ranked if x["strength"] == "listed"][:5],
         "strengths": sorted([x for x in trows + crows if x["strength"] == "proven"], key=lambda x: -x["weight"] / (100 if x["flags"].startswith("importance") else 3))[:5],
         "dead_weight": sorted(unmatched),
-        "below_importance_cutoff": below_cutoff,
+        "in_onet_not_scored": not_scored,
         "all": ranked,
     }
 
