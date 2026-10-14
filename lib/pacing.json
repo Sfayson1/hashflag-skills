@@ -1,7 +1,27 @@
 {
   "_note": "Narration words per second by provider. Budgets use the low (slow) rate so videos never run long. See docs/contracts.md, Pacing.",
-  "gemini": { "wps": 3.12, "low": 2.83, "high": 3.55, "source": "Kore, vets-who-code-app blog audio, measured" },
-  "heygen": { "wps": 2.2, "low": 2.2, "high": 2.59, "source": "Orson, VWC Labor Day run; 2.2 until measured per voice" },
-  "kokoro": { "wps": 2.2, "low": 2.2, "high": 2.5, "source": "Not measured; HyperFrames budget" },
-  "elevenlabs": { "wps": 2.42, "low": 2.42, "high": 2.58, "source": "media-use house voice River" }
+  "gemini": {
+    "wps": 3.12,
+    "low": 2.83,
+    "high": 3.55,
+    "source": "Kore, vets-who-code-app blog audio, measured"
+  },
+  "heygen": {
+    "wps": 2.2,
+    "low": 2.2,
+    "high": 2.59,
+    "source": "Orson, VWC Labor Day run; 2.2 until measured per voice"
+  },
+  "kokoro": {
+    "wps": 2.85,
+    "low": 2.7,
+    "high": 3.0,
+    "source": "Measured 2026-10-14 in full pipeline runs (per-line clips): am_michael 2.70, af_heart 2.97 wps over 215 words; hyperframes 0.8.91"
+  },
+  "elevenlabs": {
+    "wps": 2.42,
+    "low": 2.42,
+    "high": 2.58,
+    "source": "media-use house voice River"
+  }
 }

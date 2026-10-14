@@ -28,6 +28,10 @@ ctas:
 image:
   style: "Bold flat screen-print illustration, thick outlines, workshop energy"
   palette: ["ink", "accent", "accent2", "canvas"]
+tts:
+  kokoro: { voice: "am_michael" }
+video:
+  caption_case: "upper"
 ---
 
 # Brand: Lark & Lug Cycle Repair

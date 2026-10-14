@@ -19,8 +19,21 @@ export type Brand = {
   logo?: string;
   image?: { style?: string; palette?: string[] };
   tts?: Record<string, Record<string, string>>;
-  video?: Record<string, unknown>;
+  video?: { ground?: string; caption_case?: "upper" | "lower" | "none"; story?: string[] };
 };
+
+// WCAG 2 contrast ratio of two #rrggbb colors.
+export function contrast(a: string, b: string): number {
+  const lum = (hex: string) => {
+    const [r, g, b] = [1, 3, 5].map((i) => {
+      const c = parseInt(hex.slice(i, i + 2), 16) / 255;
+      return c <= 0.03928 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4;
+    });
+    return 0.2126 * r + 0.7152 * g + 0.0722 * b;
+  };
+  const [hi, lo] = [lum(a), lum(b)].sort((x, y) => y - x);
+  return (hi + 0.05) / (lo + 0.05);
+}
 
 export function parseFrontMatter(text: string): { data: Record<string, any>; body: string; raw: string } {
   const m = text.match(/^\uFEFF?---\r?\n([\s\S]*?)\r?\n---\r?\n?/);
@@ -39,6 +52,10 @@ export function validateBrand(b: any): string[] {
     if (typeof hex !== "string" || !/^#[0-9a-f]{6}$/i.test(hex))
       errors.push(`colors.${role} must be a quoted "#rrggbb" string (got ${JSON.stringify(hex)})`);
   }
+  const hex = (v: unknown) => typeof v === "string" && /^#[0-9a-f]{6}$/i.test(v);
+  if (hex(colors.ink) && hex(colors.canvas) && contrast(colors.ink, colors.canvas) < 4.5)
+    errors.push(`ink on canvas is ${contrast(colors.ink, colors.canvas).toFixed(2)}:1; body text needs at least 4.5:1`);
+  if (b?.video?.ground !== undefined && !(b.video.ground in colors)) errors.push(`video.ground names unknown color "${b.video.ground}"`);
   for (const [role, f] of Object.entries<any>(b?.fonts ?? {})) {
     if (!f?.family) errors.push(`fonts.${role}.family is required`);
     if (!f?.license) errors.push(`fonts.${role}.license is required`);
@@ -64,9 +81,13 @@ export function loadBrand(path: string): { brand: Brand; body: string; dir: stri
   const file = existsSync(path) && statSync(path).isDirectory() ? join(path, "brand.md") : path;
   if (!existsSync(file)) throw new Error(`No brand pack at ${file}`);
   const { data, body } = parseFrontMatter(readFileSync(file, "utf8"));
+  const dir = join(file, "..");
   const errors = validateBrand(data);
+  for (const [role, f] of Object.entries<any>(data.fonts ?? {}))
+    for (const p of f?.files ?? []) if (!existsSync(join(dir, p))) errors.push(`fonts.${role}.files: ${p} is missing`);
+  if (data.logo && !existsSync(join(dir, data.logo))) errors.push(`logo: ${data.logo} is missing`);
   if (errors.length) throw new Error(`Invalid brand pack ${file}:\n- ${errors.join("\n- ")}`);
-  return { brand: data as Brand, body, dir: join(file, "..") };
+  return { brand: data as Brand, body, dir };
 }
 
 if (process.argv[1] === fileURLToPath(import.meta.url)) {
