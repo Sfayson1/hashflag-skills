@@ -1,0 +1,32 @@
+{
+  "8909904ab6c872eb994093482a88a28eca2cd95912d7b6fecd72103b0dc07edc": {
+    "path": "brands/default/fonts/Inter-400.woff2",
+    "license": "brands/default/fonts/OFL-inter.txt",
+    "source": "https://github.com/rsms/inter"
+  },
+  "6f56409fd3d64bb85f7d070bce20749db2d66b6d63cec586cc22d1c761be2491": {
+    "path": "brands/default/fonts/Inter-700.woff2",
+    "license": "brands/default/fonts/OFL-inter.txt",
+    "source": "https://github.com/rsms/inter"
+  },
+  "14425ba9c695763c1547f48a206b7aa60350a33ae23de09f0407877f3fcd89eb": {
+    "path": "brands/default/fonts/JetBrainsMono-400.woff2",
+    "license": "brands/default/fonts/OFL-jetbrains-mono.txt",
+    "source": "https://github.com/JetBrains/JetBrainsMono"
+  },
+  "d0d4e818808f2a0ba39b2b09d1989366f63494e295f003c7ef436697378507e8": {
+    "path": "brands/default/fonts/JetBrainsMono-700.woff2",
+    "license": "brands/default/fonts/OFL-jetbrains-mono.txt",
+    "source": "https://github.com/JetBrains/JetBrainsMono"
+  },
+  "8c504d1be20768941ab04251a389ad82d5782d647fa1c4029c811dc5bc2abd59": {
+    "path": "skills/hashflagify/scripts/fonts/AllertaStencil-Regular.ttf",
+    "license": "skills/hashflagify/scripts/fonts/AllertaStencil-OFL.txt",
+    "source": "https://fonts.google.com/specimen/Allerta+Stencil"
+  },
+  "a776fcb4ceb8bdf03e2967688ebdad42680de5b91a7e62c17e718ae212d14bc4": {
+    "path": "skills/hashflagify/scripts/fonts/SpecialElite-Regular.ttf",
+    "license": "skills/hashflagify/scripts/fonts/SpecialElite-LICENSE.txt",
+    "source": "https://fonts.google.com/specimen/Special+Elite"
+  }
+}

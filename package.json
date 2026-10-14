@@ -1,0 +1,17 @@
+{
+  "name": "hashflag-skills",
+  "private": true,
+  "type": "module",
+  "license": "Apache-2.0",
+  "engines": {
+    "node": ">=22.18"
+  },
+  "scripts": {
+    "test": "node --test",
+    "validate": "claude plugin validate . --strict"
+  },
+  "dependencies": {
+    "aws4fetch": "1.0.20",
+    "yaml": "2.9.1"
+  }
+}
