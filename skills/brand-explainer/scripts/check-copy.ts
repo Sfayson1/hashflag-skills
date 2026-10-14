@@ -53,6 +53,9 @@ export function scan(text: string, rules: Rule[]) {
   return hits;
 }
 
+// Markdown headings are structure ("## Line 1 — Hook"), not copy the viewer sees.
+export const copyOfMarkdown = (md: string) => md.replace(/^#.*$/gm, "");
+
 // Visible text of an HTML frame, line numbers kept. Styles, scripts and tags are not copy.
 export const visibleText = (html: string) =>
   html.replace(/<(style|script)[\s\S]*?<\/\1>/gi, (m) => m.replace(/[^\n]/g, "")).replace(/<[^>]*>/g, " ");
@@ -99,7 +102,7 @@ if (process.argv[1] === fileURLToPath(import.meta.url)) {
   for (const file of files) {
     const rel = file.slice(root.length + 1);
     const raw = readFileSync(file, "utf8");
-    const text = file.endsWith(".html") ? visibleText(raw) : raw;
+    const text = file.endsWith(".html") ? visibleText(raw) : copyOfMarkdown(raw);
     for (const h of scan(text, rules)) {
       total++;
       console.error(`✗ ${rel}:${h.line}  "${h.found}" → use ${h.fix}`);

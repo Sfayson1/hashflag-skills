@@ -28,6 +28,10 @@ ctas:
 image:
   style: "Warm hand-painted gouache illustration, soft paper texture, friendly and calm"
   palette: ["accent2", "accent", "canvas", "sage"]
+tts:
+  kokoro: { voice: "af_heart" }
+video:
+  caption_case: "none"
 ---
 
 # Brand: Wrenfield Community Pantry

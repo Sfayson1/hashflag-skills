@@ -4,7 +4,7 @@ import { existsSync, mkdirSync, mkdtempSync, readFileSync, writeFileSync } from 
 import { homedir, tmpdir } from "node:os";
 import { join } from "node:path";
 import { loadBrand } from "../../../lib/brand.ts";
-import { numerals, type Rule, rulesFrom, scan, visibleText } from "./check-copy.ts";
+import { copyOfMarkdown, numerals, type Rule, rulesFrom, scan, visibleText } from "./check-copy.ts";
 import { frameMd, stage } from "./stage.ts";
 import { checkAudio, checkWords, setGround, spokenLines, wordBand } from "./verify.ts";
 
@@ -56,6 +56,11 @@ test("copy gate: fixture packs enforce their own rules", () => {
   const shop = rulesFrom(loadBrand("fixtures/small-business").brand);
   assert.equal(scan("A tune-up is $45.", shop).length, 1);
   assert.equal(scan("Call for a quote.", shop).length, 0);
+});
+
+test("copy gate: markdown headings are not copy", () => {
+  const pantry = rulesFrom(loadBrand("fixtures/nonprofit").brand);
+  assert.deepEqual(scan(copyOfMarkdown("## Line 1 — Hook (Frame 1)\n\n    Groceries — and more."), pantry).map((h) => h.line), [3]);
 });
 
 test("copy gate: frame HTML is scanned as visible text only", () => {
@@ -123,7 +128,7 @@ const SCRIPT = `# SCRIPT\n\n## Line 1 — Hook (Frame 1)\n\n    One two three fo
 
 test("verify: spoken lines and word band", () => {
   assert.deepEqual(spokenLines(SCRIPT), ["One two three four.", "Five six."]);
-  assert.deepEqual(wordBand("kokoro", 60, 90), { low: 150, high: 198 });
+  assert.deepEqual(wordBand("kokoro", 60, 90), { low: 201, high: 270 });
   assert.equal(checkWords(SCRIPT, "kokoro", 60, 90).ok, false);
 });
 
