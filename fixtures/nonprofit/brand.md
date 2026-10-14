@@ -33,14 +33,14 @@ Warm, plain, neighborly, hopeful.
 
 Example sentences:
 
-- "Last Saturday, 40 famailies picked up groceries and stayed to swap recipes."
+- "Last Saturday, 40 families picked up groceries and stayed to swap recipes."
 - "You don't need to sign up to help. Just show up Thursday at 4."
 
 ## Copy rules
 
 1. Calls to action are one literal verb: Donate, Volunteer.
 2. Say "neighbors," never "clients" or "the needy."
-3. Every number names where it came from, like "from our sign-in she et."
+3. Every number names where it came from, like "from our sign-in sheet."
 4. Short sentence. If a sentence needs a comma to breathe, split it.
 5. no em dashes.
 
