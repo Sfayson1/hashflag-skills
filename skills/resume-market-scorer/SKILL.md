@@ -64,7 +64,8 @@ Grade **every** checklist item in `resume.json`. One entry per item; also add an
 ]}
 ```
 
-- `onet_name` maps the resume's term to O*NET's exact name. Use it whenever they differ.
+- `onet_name` maps the resume's term to O*NET's exact name. Use it whenever they differ ("AWS" → "Amazon Web Services AWS software", "GCP" → "Google Cloud software").
+- For an "any of" slot, grade the member(s) the person actually uses. Don't add entries for the rivals they don't use.
 - `evidence` is a line quoted from the resume. No evidence on the page means `none`. Don't credit what the resume doesn't show.
 
 ### 4. Score
@@ -75,6 +76,7 @@ python3 "$S/score.py" onet.json resume.json --out report.json
 
 The formula is fixed; it never changes per person:
 - **Tech (70%):** the top 15 Hot Technologies by share of postings. Weight = posting share, ×1.25 if In Demand.
+- **Alternatives are one slot, never a deduction.** Java or C#; AWS, Azure or Google Cloud; React, Angular or Vue; JavaScript or TypeScript. The best evidence among members counts, and the slot is worth its most-requested member. Python, SQL, C++ and the rest stay separate items, because jobs often want them alongside each other.
 - **Core (30%):** Transferable Skills and Knowledge with importance 50 or more. Weight = importance. Essential Skills are excluded, because resumes don't evidence reading or listening.
 - **BLS** is the lane outlook only. It never changes the score.
 - **Bands:** 80+ Strong · 65–79 Competitive · 50–64 Gaps · under 50 Mismatch. The bands are **uncalibrated** until 3–5 real resumes have been run; say so in every report.
@@ -109,6 +111,6 @@ A report without the O*NET code and title, the pull date, BLS growth, pay and op
 ## Labels
 
 - **resume-fixable:** the person has the skill but the resume doesn't show it. **skill-building:** they don't have it yet.
-- **alternate stack:** a competing stack to one O*NET lists (Java vs C#, AWS vs Azure, React vs Angular). Don't push someone to add a stack they don't use; a gap in the competing stack is a "consider", not a fix.
+- **alternate stack:** the scorer already merges Java/C#, AWS/Azure/Google Cloud, React/Angular/Vue and JavaScript/TypeScript, so nobody loses points for a rival they don't use. Use the label for any other competing pair you spot, and don't push someone to add a stack they don't use.
 - **not yet in O*NET:** a real, current tool O*NET hasn't added. It is neither credited nor called dead weight.
 - **dead weight:** only for skills unrelated to the target role.

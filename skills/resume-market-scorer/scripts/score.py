@@ -19,6 +19,17 @@ CORE_TYPES = ("transferable", "knowledge")  # essential skills (reading, listeni
 MAX_AGE_DAYS = 30
 BANDS_CALIBRATED = False  # flip after 3-5 real resumes have been scored and reviewed
 
+# Alternatives scored as one slot: the best evidence among members counts, and the slot is
+# worth its most-requested member. Nobody loses points for not using a competing stack.
+# Members use O*NET's names; members O*NET doesn't list (Google Cloud) still earn credit.
+STACKS = {
+    "Java or C#": ["Oracle Java", "C#"],
+    "Cloud platform": ["Amazon Web Services AWS software", "Microsoft Azure software", "Google Cloud software"],
+    "Front-end framework": ["React", "Google Angular", "Vue.js"],
+    "JavaScript or TypeScript": ["JavaScript", "TypeScript"],  # TypeScript is a JavaScript superset
+}
+SLOT_OF = {m: slot for slot, ms in STACKS.items() for m in ms}
+
 
 def refuse(msg):
     sys.exit(f"REFUSED: {msg}")
@@ -58,18 +69,28 @@ def check_onet(o, now=None):
 
 
 def checklist(o):
-    """The fixed set of scored items: (section, item, weight, label)."""
+    """The fixed set of scored items: (section, item, weight, label, members).
+    Tech is the top 15 Hot Technologies, with stack alternatives merged into one slot."""
     tech = sorted(o.get("tech_skills", []), key=lambda t: -t["posting_pct"])[:TECH_TOP]
+    items, slots = [], {}
+    for t in tech:
+        w = t["posting_pct"] * (IN_DEMAND_BOOST if t["in_demand"] else 1)
+        label = f"{t['posting_pct']:g}% of postings" + (", In Demand" if t["in_demand"] else "")
+        slot = SLOT_OF.get(t["skill"])
+        if slot is None:
+            items.append(("tech", t["skill"], w, label, [t["skill"]]))
+        elif slot not in slots:  # tech is sorted, so the first member seen carries the highest weight
+            slots[slot] = len(items)
+            items.append(("tech", slot, w, f"any of: {', '.join(STACKS[slot])}; top member {label}", STACKS[slot]))
     core = [c for c in o.get("core_skills", []) if c["type"] in CORE_TYPES and c["importance"] >= CORE_MIN_IMPORTANCE]
-    items = [("tech", t["skill"], t["posting_pct"] * (IN_DEMAND_BOOST if t["in_demand"] else 1),
-              f"{t['posting_pct']:g}% of postings" + (", In Demand" if t["in_demand"] else "")) for t in tech]
-    items += [("core", c["skill"], c["importance"], f"{c['type']}, importance {c['importance']:g}") for c in core]
+    items += [("core", c["skill"], c["importance"], f"{c['type']}, importance {c['importance']:g}", [c["skill"]]) for c in core]
     return items
 
 
 def score(o, r):
     items = checklist(o)
     known = {norm(t["skill"]): t["skill"] for t in o.get("tech_skills", []) + o.get("core_skills", [])}
+    known.update({norm(m): m for m in SLOT_OF})
 
     ev, unmatched = {}, []
     for s in r.get("skills", []):
@@ -84,25 +105,26 @@ def score(o, r):
         if name not in ev or STRENGTH[st] > STRENGTH[ev[name]["strength"]]:
             ev[name] = s
 
-    missing = [i for _, i, _, _ in items if i not in ev]
+    missing = [i for _, i, _, _, members in items if not any(m in ev for m in members)]
     if missing:
         raise ValueError(f"resume.json must grade every checklist item (use strength none when absent). Missing: {', '.join(missing)}")
 
     rows, sub = [], {}
     for section, share in (("tech", TECH_SHARE), ("core", CORE_SHARE)):
         sec = [x for x in items if x[0] == section]
-        tw = sum(w for _, _, w, _ in sec)
+        tw = sum(x[2] for x in sec)
         got = 0.0
-        for _, name, w, label in sec:
-            st = ev[name]["strength"]
+        for _, name, w, label, members in sec:
+            best = max((ev[m] for m in members if m in ev), key=lambda e: STRENGTH[e["strength"]])
+            st = best["strength"]
             got += w * STRENGTH[st]
             value = 100 * share * w / tw if tw else 0.0  # points this item is worth when proven
             rows.append({"section": section, "skill": name, "weight": round(w, 2), "flags": label, "strength": st,
-                         "evidence": ev[name].get("evidence", ""), "value": round(value, 2),
+                         "evidence": best.get("evidence", ""), "via": best.get("onet_name") or best["skill"], "value": round(value, 2),
                          "impact": round(value * (1 - STRENGTH[st]), 2)})  # points gained if proven; gaps rank by it
         sub[section] = 100 * got / tw if tw else 0.0
     total = round(TECH_SHARE * sub["tech"] + CORE_SHARE * sub["core"], 1)
-    scored = {i for _, i, _, _ in items}
+    scored = {m for *_, members in items for m in members}
     ranked = sorted(rows, key=lambda x: -x["impact"])
 
     return {
@@ -129,8 +151,9 @@ def main():
 
     if a.checklist:
         print(f"Grade every item below in resume.json ({o['onet_code']} {o.get('onet_title')}):")
-        for section, name, w, label in checklist(o):
+        for section, name, w, label, _ in checklist(o):
             print(f"  [{section}] {name}  ({label})")
+        print("For an 'any of' slot, grade the member(s) the person uses; the best one counts.")
         return
     if not a.resume:
         ap.error("give resume.json, or --checklist")

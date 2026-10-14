@@ -18,18 +18,18 @@ onet = {"fetched_by": "fetch_market.py", "fetched_at": now, "role": "SWE", "onet
 
 def graded(strengths, extra=()):
     skills = [{"skill": name, "strength": strengths.get(name, "none"), "evidence": "" if strengths.get(name, "none") == "none" else "quoted line"}
-              for _, name, _, _ in checklist(onet)]
+              for _, name, _, _, _ in checklist(onet)]
     return {"skills": skills + list(extra)}
 
 
 # checklist: top 15 tools by posting share; essential skills excluded
 items = checklist(onet)
-assert [n for s, n, _, _ in items if s == "tech"] == [f"Tool{i}" for i in range(15)]
-assert "Critical Thinking" not in [n for _, n, _, _ in items]
-assert dict((n, w) for _, n, w, _ in items)["Tool0"] == 30 * 1.25  # In Demand boost
+assert [n for s, n, *_ in items if s == "tech"] == [f"Tool{i}" for i in range(15)]
+assert "Critical Thinking" not in [n for _, n, *_ in items]
+assert dict((n, w) for _, n, w, *_ in items)["Tool0"] == 30 * 1.25  # In Demand boost
 
 # perfect evidence scores 100; nothing scores 0
-assert score(onet, graded({n: "proven" for _, n, _, _ in items}))["score"] == 100
+assert score(onet, graded({n: "proven" for _, n, *_ in items}))["score"] == 100
 assert score(onet, graded({}))["score"] == 0
 
 # impacts add up to what's missing; the top gap is the biggest one
@@ -52,6 +52,30 @@ for bad, msg in [({"skills": []}, "Missing: Tool0"),
         raise AssertionError(f"expected ValueError for {msg}")
     except ValueError as e:
         assert msg in str(e), e
+
+
+# alternative stacks: one slot, best member counts, no deduction for the rival
+stack_tech = [{"skill": "Oracle Java", "posting_pct": 25, "in_demand": True}, {"skill": "C#", "posting_pct": 12, "in_demand": True},
+              {"skill": "Amazon Web Services AWS software", "posting_pct": 26, "in_demand": True},
+              {"skill": "Microsoft Azure software", "posting_pct": 19, "in_demand": True},
+              {"skill": "JavaScript", "posting_pct": 20, "in_demand": True}, {"skill": "TypeScript", "posting_pct": 8, "in_demand": True},
+              {"skill": "Python", "posting_pct": 29, "in_demand": True}]
+stacks = onet | {"tech_skills": stack_tech, "core_skills": []}
+slots = {n: (w, members) for s, n, w, _, members in checklist(stacks) if s == "tech"}
+assert set(slots) == {"Java or C#", "Cloud platform", "JavaScript or TypeScript", "Python"}, slots
+assert slots["Java or C#"][0] == 25 * 1.25  # worth its most-requested member
+ev = lambda name, st="proven": {"skill": name, "strength": st, "evidence": "" if st == "none" else "quoted line"}
+try:  # a resume term that doesn't map leaves its slot ungraded, which fails loudly
+    score(stacks, {"skills": [ev("C#"), ev("GCP"), ev("TypeScript"), ev("Python")]})
+    raise AssertionError("expected ValueError")
+except ValueError as e:
+    assert "Missing: Cloud platform" in str(e), e
+gcp = score(stacks, {"skills": [ev("C#"), {"skill": "GCP", "onet_name": "Google Cloud software", "strength": "proven", "evidence": "x"},
+                                ev("TypeScript"), ev("Python")]})
+assert gcp["subscores"]["tech"] == 100, gcp["subscores"]  # C# instead of Java, GCP not in O*NET, TypeScript for JavaScript: no deduction
+assert next(x for x in gcp["all"] if x["skill"] == "Java or C#")["via"] == "C#"
+# Python is not an alternative to JavaScript: missing it still costs points
+assert score(stacks, {"skills": [ev("C#"), ev("Amazon Web Services AWS software"), ev("JavaScript"), ev("Python", "none")]})["top_gaps"][0]["skill"] == "Python"
 
 
 def run(o, resume_dir):
