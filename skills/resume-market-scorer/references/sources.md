@@ -4,9 +4,6 @@
 - Greenhouse: https://boards-api.greenhouse.io/v1/boards/<company>/jobs?content=true
 - Lever: https://api.lever.co/v0/postings/<company>?mode=json
 - Ashby: https://api.ashbyhq.com/posting-api/job-board/<company>
-- Remotive: https://remotive.com/api/remote-jobs?search=<lane term>
-  Terms (https://github.com/remotive-com/remote-jobs-api): at most 4 calls a day, jobs are delayed 24 hours,
-  and any use must link to each Remotive job URL and name Remotive as a source.
 
 Companies are in `companies.json`, verified live on the date in its `_note`. When a source fails, check the
 slug at the endpoint above and drop or fix it.

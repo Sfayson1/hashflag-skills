@@ -2,7 +2,7 @@
 import json, os, subprocess, sys, tempfile
 from datetime import datetime, timedelta, timezone
 from fetch_postings import REF, build, cap, digest, split, term_re
-from score_skills import W_ONET, W_POSTINGS, checklist, composite, score
+from score_skills import W_ONET, W_POSTINGS, checklist, composite, market_onet, pool_band, score
 import score as onet_scorer
 
 HERE = os.path.dirname(os.path.abspath(__file__))
@@ -28,13 +28,14 @@ def post(co, title, body, days=1):
 AI = "<h3>Requirements</h3><ul><li>Python, LangChain, LangGraph</li><li>Docker</li></ul><h3>Preferred</h3><ul><li>Rust, RAG</li></ul>"
 posts = [post(f"co{i}", "AI Engineer", AI) for i in range(30)]
 posts += [post("big", f"AI Engineer {i}", "<p>Python, OpenAI</p>") for i in range(40)]           # one company floods
-posts += [post("openai", "Applied AI Engineer", "<p>OpenAI API and Python</p>"),                  # vendor's own name
+posts += [post("pedco", "AI Engineer", "<p>Python. Experience at FAANG or big tech preferred. Ex-Microsoft welcome.</p>"),
+          post("openai", "Applied AI Engineer", "<p>OpenAI API and Python</p>"),                  # vendor's own name
           post("co0", "AI Engineer", AI),                                                         # duplicate
           post("co1", "AI Engineering Manager", AI), post("co2", "AI Engineer Intern", AI),        # excluded titles
           post("co3", "AI Engineer II", AI, days=90), post("co4", "Account Executive", AI)]         # too old, wrong lane
 p = build("ai", [("greenhouse", "x", posts, None), ("lever", "y", [], "HTTPError: 404")], vocab)
 by = {s["skill"]: s for s in p["skills"]}
-assert p["companies"] == 32 and p["failed_sources"] == [{"source": "lever/y", "error": "HTTPError: 404"}]
+assert p["companies"] == 33 and p["failed_sources"] == [{"source": "lever/y", "error": "HTTPError: 404"}]
 assert max(sum(1 for x in p["postings"] if x["company"] == c) for c in ("big", "co0")) <= 0.15 * p["sample_size"]
 assert by["LangGraph"]["required_pct"] > 0 and by["RAG"]["preferred_pct"] > 0 and by["RAG"]["required_pct"] == 0
 assert by["OpenAI API"]["postings"] == sum(1 for x in p["postings"] if x["company"] == "big")  # openai's own posting not counted
@@ -95,7 +96,35 @@ assert py["onet"] and py["lift"] == round(W_POSTINGS * next(r["lift"] for r in p
                                           + W_ONET * next(r["impact"] for r in orp["all"] if r["skill"] == "Python"), 1)
 assert "Programming" in [x["skill"] for x in cr["strong"]] and cr["not_scored"] == []  # O*NET core item, not "unknown"
 assert [x["lift"] for x in cr["add"]] == sorted((x["lift"] for x in cr["add"]), reverse=True)
+lowpy = dict(p, skills=[x | {"pct": 1.0} if x["skill"] == "Python" else x for x in p["skills"]])  # O*NET still wants Python
+assert [c["skill"] for c in score(lowpy, both, vocab)["cut"]] == ["Python"]
+assert composite(score(lowpy, both, vocab), orp, both, vocab)["cut"] == []
 
+
+# market prevails: an O*NET tool the lane's postings track takes the live share; look-alike products don't
+mkt = dict(p, skills=[{"skill": n, "pct": v} for n, v in (("Java", 5.0), ("Python", 60.0), ("JavaScript", 17.5), ("SQL", 7.5))])
+adj, changed = market_onet(onet | {"tech_skills": [
+    {"skill": "Oracle Java", "posting_pct": 25, "in_demand": True}, {"skill": "Python", "posting_pct": 29, "in_demand": True},
+    {"skill": "Microsoft SQL Server", "posting_pct": 3, "in_demand": False},
+    {"skill": "JavaScript Object Notation JSON", "posting_pct": 4, "in_demand": False},
+    {"skill": "Structured query language SQL", "posting_pct": 24, "in_demand": True},
+    {"skill": "Jenkins CI", "posting_pct": 8, "in_demand": True}]}, mkt, vocab)
+assert {t["skill"]: t["posting_pct"] for t in adj["tech_skills"]} == {  # unmeasured or look-alike tools aren't scored
+    "Oracle Java": 5.0, "Python": 60.0, "Structured query language SQL": 7.5}, adj["tech_skills"]
+assert changed[0] == {"tool": "Oracle Java", "onet_pct": 25, "market_pct": 5.0}
+
+# pedigree asks are counted from requirement context only ("experience at FAANG"), never scored
+assert p["pedigree_pct"] == round(100 / p["sample_size"], 1)
+assert "text" not in p["postings"][0]
+
+# bands are percentiles of the lane's pool; Competitive = above the median; no band under MIN_POOL
+assert pool_band(60, [])["band"] is None and pool_band(60, [])["above"] == 0
+small = pool_band(60, [50, 70])
+assert small["band"] is None and small["above"] == 1 and small["percentile"] == 50
+pool = list(range(40, 80, 2))  # 20 scores, median between 58 and 60
+assert pool_band(59, pool)["band"] == "Competitive" and pool_band(57, pool)["band"] == "Gaps"
+assert pool_band(79, pool)["band"] == "Strong" and pool_band(41, pool)["band"] == "Mismatch"
+assert pool_band(59, pool)["percentile"] == 50
 
 def run(postings, resume_dir):
     with tempfile.TemporaryDirectory() as t:

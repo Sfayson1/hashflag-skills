@@ -22,8 +22,12 @@ MAX_AGE_DAYS = 14
 ONET_MAX_AGE_DAYS = 30
 SHOW = 5
 BIAS = "No Workday-hosted postings (no keyless API); sample leans tech/startup."
+POOL = os.path.join(REF, "pool.json")
+MIN_POOL = 20  # scored resumes a lane needs before percentile bands mean anything
 # VWC definition: composite = 50% live postings + 50% O*NET market fit (itself 70% tech, 30% core).
 W_POSTINGS, W_ONET = 0.5, 0.5
+# Words O*NET adds around a tool's name ("Oracle Java", "IBM Terraform", "Amazon Web Services AWS software")
+ONET_FILLER = re.compile(r"\b(?:software|oracle|microsoft|google|ibm|apache|framework)\b", re.I)
 
 
 def refuse(msg):
@@ -143,6 +147,34 @@ def score(p, resume, vocab, text=None, onet=None):
     }
 
 
+def market_onet(onet, p, vocab):
+    """VWC definition: the market prevails. Each O*NET tool the lane's postings track takes the lane's live share
+    of postings in place of O*NET's; a tool the market doesn't measure isn't scored. A tool maps only when its
+    O*NET name is that skill plus vendor filler, so "Microsoft SQL Server" doesn't borrow SQL's share.
+    Core skills are untouched."""
+    live = {s["skill"]: s["pct"] for s in p["skills"]}
+    out, changed = [], []
+    for t in onet["tech_skills"]:
+        skill = next((v["skill"] for v, rxs in matchers(vocab)
+                      if any(m.search(t["skill"]) for m in rxs)
+                      and not ONET_FILLER.sub("", re.sub("|".join(m.pattern for m in rxs), "", t["skill"], flags=re.I)).strip()), None)
+        if skill is None or skill not in live:
+            continue
+        out.append(t | {"posting_pct": live[skill]})
+        if live[skill] != t["posting_pct"]:
+            changed.append({"tool": t["skill"], "onet_pct": t["posting_pct"], "market_pct": live[skill]})
+    return onet | {"tech_skills": out}, changed
+
+
+def pool_band(score, scores):
+    """VWC definition: band = percentile rank in the lane's pool of real scores. Competitive is above the pool
+    median, the line NYC Local Law 144 bias audits draw (6 RCNY 5-301). Under MIN_POOL, no band: rank only."""
+    below = sum(1 for x in scores if x < score)
+    pct = round(100 * below / len(scores)) if scores else None
+    band = None if len(scores) < MIN_POOL else "Strong" if pct >= 75 else "Competitive" if pct >= 50 else "Gaps" if pct >= 25 else "Mismatch"
+    return {"n": len(scores), "above": below, "percentile": pct, "band": band, "min_pool": MIN_POOL}
+
+
 def composite(prep, orep, resume, vocab):
     """One score and one ranked list. A skill in both sources gets both lifts, weighted."""
     rx = {v["skill"]: m for v, m in matchers(vocab)}
@@ -162,7 +194,7 @@ def composite(prep, orep, resume, vocab):
     total = round(W_POSTINGS * prep["score"] + W_ONET * orep["score"], 1)
     by_lift = lambda xs: sorted(xs, key=lambda x: -x["lift"])[:SHOW]
     return {
-        "lane": prep["lane"], "score": total, "band": onet_scorer.band(total), "bands_calibrated": onet_scorer.BANDS_CALIBRATED,
+        "lane": prep["lane"], "score": total,
         "definition": f"VWC definition: composite = {W_POSTINGS:g} x live-postings score + {W_ONET:g} x O*NET market fit "
                       f"(70% tech, 30% core). Lift = composite points gained if that skill moved to proven.",
         "built_from": {"postings": prep["score"], "onet": orep["score"], "onet_tech": orep["subscores"]["tech"],
@@ -172,7 +204,10 @@ def composite(prep, orep, resume, vocab):
         "strong": sorted((x for x in items if x["grade"] == "proven"), key=lambda x: -(x["pct"] or 0))[:SHOW],
         "prove_it": by_lift(x for x in items if x["grade"] in ("applied", "listed", "stale")),
         "add": by_lift(x for x in items if x["grade"] == "none"),
-        "cut": prep["cut"], "new_terms": prep["new_terms"], "ats": orep["ats"],
+        # CUT only what neither source wants: a skill O*NET scores (Git) is never cut for low posting share
+        "cut": [c for c in prep["cut"] if not any(m.search(n) for x in orep["all"] for n in onet_scorer.STACKS.get(x["skill"], [x["skill"]])
+                                                  for m in rx.get(c["skill"], []))],
+        "new_terms": prep["new_terms"], "ats": orep["ats"],
         "not_scored": sorted(set(prep["not_in_vocab"]) & set(orep["unmatched"])),
         "items": sorted(items, key=lambda x: -x["lift"]), "bias": BIAS,
         "sources": {"postings": prep["sources"], "onet_bls": orep["sources"]},
@@ -186,11 +221,15 @@ def main():
     ap.add_argument("--text", help="the resume as plain text; every evidence quote must appear in it")
     ap.add_argument("--onet", required=True, help="onet.json from fetch_market.py")
     ap.add_argument("--out")
+    ap.add_argument("--add-to-pool", action="store_true", help="record this score in references/pool.json (real resumes only, once per person)")
     a = ap.parse_args()
     p = json.load(open(a.postings))
     check_postings(p)
     onet = json.load(open(a.onet))
     check_onet(onet)
+    vocab = json.load(open(os.path.join(REF, "skills_vocab.json")))
+    onet_raw = onet
+    onet, override = market_onet(onet, p, vocab)
 
     if a.checklist:
         print(f"Grade every skill below in resume.json ({p['lane']} lane, {p['sample_size']} postings), "
@@ -210,9 +249,20 @@ def main():
         if repo:
             refuse(f"{path} is inside the git repo {repo}. Resumes are personal data: use ~/resume-scores/<person>/.")
     try:
-        resume, vocab = json.load(open(a.resume)), json.load(open(os.path.join(REF, "skills_vocab.json")))
+        resume = json.load(open(a.resume))
         text = open(a.text).read() if a.text else None
         rep = composite(score(p, resume, vocab, text), onet_scorer.score(onet, resume, text), resume, vocab)
+        rep["market_override"] = override
+        rep["pedigree_pct"] = p["pedigree_pct"]  # share of postings asking for employer pedigree outright; never scored
+        pool = json.load(open(POOL))
+        rep["pool"] = pool_band(rep["score"], [x["score"] for x in pool[rep["lane"]]])
+        if a.add_to_pool:
+            pool[rep["lane"]].append({"score": rep["score"], "scored": rep["fetched_at"][:10]})
+            json.dump(pool, open(POOL, "w"), indent=1)
+        # Never advise cutting a tool O*NET counts as common (Git), even when this lane's postings take it for granted
+        common = [t["skill"] for t in onet_raw["tech_skills"] if t["posting_pct"] >= CUT_PCT]
+        rx = {v["skill"]: m for v, m in matchers(vocab)}
+        rep["cut"] = [c for c in rep["cut"] if not any(m.search(n) for n in common for m in rx.get(c["skill"], []))]
     except (ValueError, KeyError) as e:
         sys.exit(f"error: {e}")
     if a.out:
@@ -221,8 +271,10 @@ def main():
 
     best = rep["items"][0]
     s, b, f = rep["sample"], rep["bls"] or {}, rep["built_from"]
-    print(f"Composite Score {rep['score']}/100 for {rep['lane']} ({rep['band']}, bands uncalibrated). "
-          f"Biggest lift: {best['skill']} (+{best['lift']} pts).")
+    pb = rep["pool"]
+    standing = (f"{pb['band']}: above {pb['above']} of {pb['n']} scored {rep['lane']} resumes" if pb["band"] else
+                f"pool too small for a band: above {pb['above']} of {pb['n']} scored {rep['lane']} resumes, need {pb['min_pool']}")
+    print(f"Composite Score {rep['score']}/100 for {rep['lane']} ({standing}). Biggest lift: {best['skill']} (+{best['lift']} pts).")
     print(f"Built from: live postings {f['postings']} · O*NET market fit {f['onet']} (tech {f['onet_tech']}, core {f['onet_core']}). "
           f"{rep['definition']}")
     print(f"Sample: {s['sample_size']} postings, {s['companies']} companies, boards {s['boards']}, fetched {rep['fetched_at'][:10]}, "
@@ -231,6 +283,10 @@ def main():
     print(f"Lane outlook (BLS {b.get('period')}): {b.get('growth_pct')}% growth, median pay ${b.get('median_wage') or 0:,.0f}, "
           f"{b.get('annual_openings_k')}K openings/yr.")
     print(rep["bias"])
+    moved = sorted(override, key=lambda c: -abs(c["market_pct"] - c["onet_pct"]))[:10]  # ponytail: top 10 by size; all in report.json
+    if moved:
+        print("Market override, live lane share replaces O*NET's (VWC definition): "
+              + ", ".join(f"{c['tool']} {c['onet_pct']:g}% -> {c['market_pct']:g}%" for c in moved))
     demand = lambda x: ", ".join(d for d in (x["pct"] is not None and f"{x['pct']}% of postings", x["onet"] and f"O*NET {x['onet']}") if d)
     for title, xs, line in [
         ("STRONG", rep["strong"], demand),
@@ -250,6 +306,8 @@ def main():
         print(f"ATS wording: {ats['ready']} of {ats['checked']} tools written in every standard form")
         for x in ats["fixes"]:
             print(f"  {x['skill']:<34} missing {', '.join(repr(m) for m in x['missing'])}; write {x['write']!r}")
+    print(f"Pedigree (not scored): {rep['pedigree_pct']}% of postings ask for employer pedigree outright (FAANG, big tech, top-tier). "
+          "Recruiters still weight employer names when reading; the postings just don't say so.")
     if rep["not_scored"]:
         print(f"Not scored (in neither source): {', '.join(rep['not_scored'])}")
 

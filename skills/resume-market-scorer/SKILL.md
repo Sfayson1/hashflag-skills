@@ -1,6 +1,6 @@
 ---
 name: resume-market-scorer
-description: Score a resume's skills against what live job postings ask for, for civilian Software, Data, ML and AI Engineer roles. Pulls live data by script on every run: current postings from keyless job-board APIs (Greenhouse, Lever, Ashby, Remotive), plus O*NET in-demand skills and the BLS outlook for the matching occupation. Grades the resume's evidence for each skill and outputs one 0–100 composite score for where the resume stands in the market for the target role, with the BLS outlook as context and the exact skills to add, prove, or cut, ranked by points gained. Use this whenever someone wants to score, grade, benchmark, or audit a resume's skills, find skill gaps for a target role, asks "how does my resume stack up," or before editing or tailoring a resume, even if they don't say "score."
+description: Score a resume's skills against what live job postings ask for, for civilian Software, Data, ML and AI Engineer roles. Pulls live data by script on every run: current postings from keyless job-board APIs (Greenhouse, Lever, Ashby), plus O*NET in-demand skills and the BLS outlook for the matching occupation. Grades the resume's evidence for each skill and outputs one 0–100 composite score for where the resume stands in the market for the target role, with the BLS outlook as context and the exact skills to add, prove, or cut, ranked by points gained. Use this whenever someone wants to score, grade, benchmark, or audit a resume's skills, find skill gaps for a target role, asks "how does my resume stack up," or before editing or tailoring a resume, even if they don't say "score."
 ---
 
 # Resume Market Scorer
@@ -28,7 +28,7 @@ Scripts are in `${CLAUDE_SKILL_DIR}/scripts/` (call it `S`). Run them with `pyth
    python3 "$S/fetch_postings.py" <lane> --out postings.json
    BLS_CONTACT_EMAIL=<their email> python3 "$S/fetch_market.py" <CODE> --role "<role>" --out onet.json
    ```
-   Report any `SOURCE FAILED` lines. Remotive allows at most 4 calls a day, so don't re-fetch a lane needlessly; postings.json stays valid for 14 days. BLS refuses requests without a contact email: use the email of the person running the skill; if it isn't set, ask for it. Never invent or reuse one.
+   Report any `SOURCE FAILED` lines. postings.json stays valid for 14 days. BLS refuses requests without a contact email: use the email of the person running the skill; if it isn't set, ask for it. Never invent or reuse one.
 3. **Checklist:** `python3 "$S/score_skills.py" postings.json --onet onet.json --checklist` lists every postings skill and every O*NET item.
 4. **Grade the resume → `resume.json`.** Save it as plain text in `resume.txt` first. One entry per skill covers both sources. Grade **every** checklist item, plus every other skill on the resume:
 
@@ -67,10 +67,13 @@ One score for where the resume stands in the market for the target lane:
 - **Composite = 50% live postings + 50% O*NET market fit.** O*NET market fit is 70% tech, 30% core, so overall: postings 50 · O*NET tech 35 · O*NET core 15.
 - **Live postings:** the top 25 skills by share of postings in the lane. Weight = share, ×1.5 when asked for as required at least as often as preferred. Required vs preferred is a VWC heuristic: text under a header like "Preferred", "Nice to have" or "Bonus" is preferred; about, benefits and pay sections are skipped; the rest is required.
 - **O*NET tech:** the top 15 Hot Technologies by share of postings, ×1.25 if In Demand. **O*NET core:** Transferable Skills and Knowledge with importance 50+.
+- **The market prevails.** When the lane's live postings track an O*NET tool, the live share replaces O*NET's before the top 15 is picked (Java for the ai lane: O*NET 25% → market 5%). An O*NET tool the market doesn't measure isn't scored. O*NET still decides which tools and core skills count; the market decides what each tool weighs. A tool maps only when its O*NET name is that skill plus vendor filler ("Oracle Java"), so "Microsoft SQL Server" doesn't borrow SQL's share. The report prints every override.
 - **Family rollup:** a resume skill in a family credits its parent at 0.7 of its grade (LangGraph proven → LangChain 0.7).
 - **Lift** = composite points gained if that skill moved to proven. A skill in both sources gets both lifts, weighted. Every recommendation is sorted by lift.
-- **Bands:** 80+ Strong · 65–79 Competitive · 50–64 Gaps · under 50 Mismatch. **Uncalibrated** until 3–5 real resumes have been run; say so.
+- **Bands are percentiles of a reference pool, not fixed cutoffs.** `references/pool.json` holds real composite scores per lane (scores only, no names or text). Strong = top quarter · Competitive = above the lane median · Gaps = below it · Mismatch = bottom quarter. The median line is the one NYC Local Law 144 bias audits draw (6 RCNY 5-301): a scoring tool is audited on who lands above the applicant pool's median. Under 20 scored resumes in a lane, no band is given, only "above N of M", marked provisional.
+- **Growing the pool:** after scoring a real resume, ask once whether to record the score; if yes, re-run with `--add-to-pool`. One entry per person per lane, latest version only. Never add what-ifs, synthetic resumes, or test runs.
 - **BLS is context, not points.** It has no skill data, only the lane's growth, pay and openings, so it frames where the lane is headed and never changes the score.
+- **Pedigree** is a separate line that never changes the score: the share of postings that ask for employer pedigree outright ("experience at FAANG", "big tech", "top-tier"). Recruiters weight employer names when reading a resume even when the posting doesn't say so; the line shows what this lane's postings put in writing.
 - **ATS wording** is a separate check that never changes the score: tools the resume doesn't write in every standard form ("Google Cloud (GCP)"). Its fixes are always resume-fixable.
 
 ## Report
@@ -78,7 +81,7 @@ One score for where the resume stands in the market for the target lane:
 BLUF first, warm and encouraging, showing the path to a higher score:
 
 ```
-Composite Score XX/100 for [lane] ([band], bands uncalibrated). Biggest lift: [skill] (+N pts).
+Composite Score XX/100 for [lane] ([band]: above N of M scored [lane] resumes | pool too small for a band, above N of M, need 20). Biggest lift: [skill] (+N pts).
 Built from: live postings XX · O*NET market fit XX (tech XX, core XX).
 Lane outlook (BLS [period]): [growth]% growth, median pay $[X], [N]K openings/yr.
 
@@ -91,17 +94,18 @@ PROVE IT (on the resume, not yet proven; lift if moved into a result bullet)
 1. [Skill] — resume: [grade], +N pts if proven
 ADD (missing)
 1. [Skill] — +N pts, [resume-fixable | skill-building]
-CUT (on the resume, under 2% of postings)
+CUT (on the resume, under 2% of postings, and not a common O*NET tool like Git)
 1. [Skill] — X% of postings
+Pedigree (not scored): X% of postings ask for employer pedigree outright.
 ATS wording: [N] of [M] tools written in every standard form
 1. [Skill] — write "[term]"
 NEW — review (frequent in postings, in neither source's scoring)
 1. [Term] — X% of postings
 
-Sources: [boards and companies sampled; Remotive credited by name with its job links; every URL in onet.json "sources"]
+Sources: [boards and companies sampled; every URL in onet.json "sources"]
 ```
 
 - Each list max 5. Copy numbers from the script output.
-- Always print the bias line. If confidence is LOW (under 30 postings), say so next to the score.
+- Always print the bias line. If confidence is LOW (under 30 postings), say so next to the score. If the pool is under 20, say the standing is provisional.
 - The score is a VWC definition, not a hiring prediction; say so once.
 - A skill neither source knows is reported, never scored. Suggest adding a real tool to `references/skills_vocab.json`.

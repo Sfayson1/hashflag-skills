@@ -3,20 +3,20 @@
 
   python3 fetch_postings.py ai --out postings.json
 
-Lanes: software, data, ml, ai. Boards: Greenhouse, Lever, Ashby (companies in references/companies.json)
-plus Remotive search. A source that fails is reported and skipped; if every source fails, the script exits.
+Lanes: software, data, ml, ai. Boards: Greenhouse, Lever, Ashby (companies in references/companies.json).
+A source that fails is reported and skipped; if every source fails, the script exits.
 """
-import argparse, hashlib, html, json, os, re, sys, urllib.parse, urllib.request
+import argparse, hashlib, html, json, os, re, sys, urllib.request
 from collections import Counter, defaultdict
 from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime, timedelta, timezone
 
 REF = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "references")
 LANES = {
-    "software": (r"software engineer|software developer|backend|frontend|full[- ]?stack", "software engineer"),
-    "data": (r"data engineer|analytics engineer|data platform", "data engineer"),
-    "ml": (r"machine learning engineer|ml engineer|mlops", "machine learning engineer"),
-    "ai": (r"ai engineer|applied ai|llm engineer|genai|generative ai", "ai engineer"),
+    "software": r"software engineer|software developer|backend|frontend|full[- ]?stack",
+    "data": r"data engineer|analytics engineer|data platform",
+    "ml": r"machine learning engineer|ml engineer|mlops",
+    "ai": r"ai engineer|applied ai|llm engineer|genai|generative ai",
 }
 EXCLUDE = r"manager|director|recruiter"
 INTERN = r"interns?|internship"
@@ -24,6 +24,12 @@ MAX_AGE_DAYS = 60
 COMPANY_CAP = 0.15
 LOW_SAMPLE = 30
 NEW_TERM_PCT = 5
+# Postings that ask for employer pedigree outright. Reported as a recognition signal; never scored.
+# A requirement word must sit within four words before the phrase, so "used by the Fortune 500" and "top-tier
+# benefits" in company blurbs don't count.
+PEDIGREE = re.compile(r"\b(?:experience|background|worked|working|from|ex-|alumni|veterans? of|came from)\W+(?:\w+\W+){0,4}?"
+                      r"(?:FAANG|MANGA|big tech|top[- ]tier|tier[- ]1|Fortune ?500|high[- ]growth start-?ups?|"
+                      r"leading tech compan(?:y|ies)|name[- ]brand)\b", re.I)
 # VWC heuristic: a section whose header matches PREFERRED is preferred; SKIP sections (company boilerplate) are
 # not counted; every other section is required.
 PREFERRED = re.compile(r"prefer|nice to have|bonus|plus|desired", re.I)
@@ -34,7 +40,6 @@ BOARDS = {
     "lever": "https://api.lever.co/v0/postings/{}?mode=json",
     "ashby": "https://api.ashbyhq.com/posting-api/job-board/{}",
 }
-REMOTIVE = "https://remotive.com/api/remote-jobs?search={}"  # their terms: max 4 calls/day, credit Remotive and link each job
 
 
 def get(url):
@@ -103,21 +108,14 @@ def board(name, co):
                  html=j.get("descriptionHtml", "")) for j in data["jobs"] if j.get("isListed", True)]
 
 
-def remotive(term):
-    return [dict(company=j["company_name"].strip(), title=j["title"], location=j.get("candidate_required_location", ""),
-                 url=j["url"], date=j.get("publication_date"), html=j.get("description", ""))
-            for j in get(REMOTIVE.format(urllib.parse.quote(term)))["jobs"]]
-
-
-def fetch_all(lane):
+def fetch_all():
     cos = json.load(open(os.path.join(REF, "companies.json")))
-    jobs = [(b, c) for b in BOARDS for c in cos[b]] + [("remotive", LANES[lane][1])]
+    jobs = [(b, c) for b in BOARDS for c in cos[b]]
 
     def one(bc):
         b, c = bc
         try:
-            posts = remotive(c) if b == "remotive" else [p | {"company": c} for p in board(b, c)]
-            return b, c, [p | {"board": b} for p in posts], None
+            return b, c, [p | {"company": c, "board": b} for p in board(b, c)], None
         except Exception as e:
             return b, c, [], f"{type(e).__name__}: {e}"
 
@@ -138,7 +136,7 @@ def cap(posts, share):
 
 def build(lane, results, vocab, include_intern=False, now=None):
     now = now or datetime.now(timezone.utc)
-    title_re = re.compile(rf"\b(?:{LANES[lane][0]})\b", re.I)
+    title_re = re.compile(rf"\b(?:{LANES[lane]})\b", re.I)
     drop_re = re.compile(rf"\b(?:{EXCLUDE}{'' if include_intern else '|' + INTERN})\b", re.I)
     seen, posts = set(), []
     for _, _, ps, _ in results:
@@ -155,8 +153,10 @@ def build(lane, results, vocab, include_intern=False, now=None):
 
     req, pref, new, new_cos = Counter(), Counter(), Counter(), defaultdict(set)
     known = [rx for _, rxs in matchers(vocab) for rx in rxs]
+    pedigree = 0
     for p in posts:
         r, f = split(p["html"])
+        pedigree += bool(PEDIGREE.search(r + "\n" + f))
         for s, rxs in matchers(vocab):
             if p["company"].lower() in s.get("vendor", []):
                 continue
@@ -180,7 +180,7 @@ def build(lane, results, vocab, include_intern=False, now=None):
         "boards": dict(Counter(p["board"] for p in posts)), "confidence": "LOW" if n < LOW_SAMPLE else "OK",
         "split_rule": "VWC heuristic: sections under a header matching prefer|nice to have|bonus|plus|desired are preferred; "
                       "about/benefits/pay/EEO sections are skipped; the rest is required",
-        "failed_sources": failed, "skills": skills,
+        "failed_sources": failed, "pedigree_pct": pct(pedigree), "skills": skills,
         # 3+ companies so one firm's product names (its own CamelCase brand) don't surface
         "new_terms": sorted(({"term": t, "postings": c, "pct": pct(c)} for t, c in new.items()
                              if pct(c) >= NEW_TERM_PCT and len(new_cos[t]) >= 3), key=lambda x: -x["pct"]),
@@ -201,7 +201,7 @@ def main():
     ap.add_argument("--out", required=True)
     ap.add_argument("--include-intern", action="store_true")
     a = ap.parse_args()
-    results = fetch_all(a.lane)
+    results = fetch_all()
     for b, c, _, e in results:
         if e:
             print(f"SOURCE FAILED: {b}/{c}: {e}", file=sys.stderr)
