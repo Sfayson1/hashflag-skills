@@ -6,3 +6,4 @@ renders/
 out/
 brag-output*/
 .hyperframes/
+__pycache__/
