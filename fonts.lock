@@ -18,5 +18,15 @@
     "path": "brands/default/fonts/JetBrainsMono-700.woff2",
     "license": "brands/default/fonts/OFL-jetbrains-mono.txt",
     "source": "https://github.com/JetBrains/JetBrainsMono"
+  },
+  "8c504d1be20768941ab04251a389ad82d5782d647fa1c4029c811dc5bc2abd59": {
+    "path": "skills/hashflagify/scripts/fonts/AllertaStencil-Regular.ttf",
+    "license": "skills/hashflagify/scripts/fonts/AllertaStencil-OFL.txt",
+    "source": "https://fonts.google.com/specimen/Allerta+Stencil"
+  },
+  "a776fcb4ceb8bdf03e2967688ebdad42680de5b91a7e62c17e718ae212d14bc4": {
+    "path": "skills/hashflagify/scripts/fonts/SpecialElite-Regular.ttf",
+    "license": "skills/hashflagify/scripts/fonts/SpecialElite-LICENSE.txt",
+    "source": "https://fonts.google.com/specimen/Special+Elite"
   }
 }
