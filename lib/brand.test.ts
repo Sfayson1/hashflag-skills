@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { loadBrand, parseFrontMatter, validateBrand } from "./brand.ts";
+import { contrast, loadBrand, parseFrontMatter, validateBrand } from "./brand.ts";
 
 const pack = (yaml: string) => parseFrontMatter(`---\n${yaml}\n---\n`).data;
 const base = `schema: hashflag-brand/0\nname: "X"\ncolors:\n  ink: "#111111"\n  canvas: "#ffffff"`;
@@ -33,3 +33,13 @@ test("a bad regex in copy_rules fails", () => {
 });
 
 test("a missing pack names the path", () => assert.throws(() => loadBrand("nope"), /No brand pack at nope/));
+
+test("ink on canvas below 4.5:1 fails", () => {
+  const errors = validateBrand(pack(base.replace('"#111111"', '"#999999"')));
+  assert.match(errors.join(), /ink on canvas is 2\.85:1/);
+});
+
+test("contrast matches WCAG", () => {
+  assert.equal(contrast("#000000", "#ffffff").toFixed(1), "21.0");
+  assert.equal(contrast("#c5203e", "#091f40").toFixed(2), "2.85");
+});
