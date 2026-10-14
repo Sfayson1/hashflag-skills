@@ -1,13 +1,27 @@
 #!/usr/bin/env python3
-"""Score resume evidence against O*NET occupation data (BLS reported as outlook).
+"""Score resume evidence against live O*NET data (BLS reported as outlook only).
 
-Usage: python3 score.py onet.json resume.json [--out report.json]
+  python3 score.py onet.json --checklist                 # every item that will be scored
+  python3 score.py onet.json resume.json --out report.json
+
+onet.json must come from fetch_market.py and be under 30 days old. The resume and the
+report must live outside any git repo. The formula is fixed; it never changes per person.
 """
-import argparse, json, sys
+import argparse, json, os, sys
+from datetime import datetime, timezone
 
 STRENGTH = {"proven": 1.0, "applied": 0.7, "listed": 0.4, "stale": 0.3, "none": 0.0}
 TECH_SHARE, CORE_SHARE = 0.70, 0.30
+TECH_TOP = 15
+IN_DEMAND_BOOST = 1.25
 CORE_MIN_IMPORTANCE = 50
+CORE_TYPES = ("transferable", "knowledge")  # essential skills (reading, listening) aren't evidenced by resumes
+MAX_AGE_DAYS = 30
+BANDS_CALIBRATED = False  # flip after 3-5 real resumes have been scored and reviewed
+
+
+def refuse(msg):
+    sys.exit(f"REFUSED: {msg}")
 
 
 def norm(s):
@@ -18,104 +32,131 @@ def band(x):
     return "Strong" if x >= 80 else "Competitive" if x >= 65 else "Gaps" if x >= 50 else "Mismatch"
 
 
-def flags(t):
-    f = [n for n, k in (("Hot Tech", "hot"), ("In Demand", "in_demand")) if t.get(k)]
-    return ", ".join(f) or "Listed"
+def in_git_repo(path):
+    d = os.path.dirname(os.path.abspath(path))
+    while True:
+        if os.path.exists(os.path.join(d, ".git")):
+            return d
+        parent = os.path.dirname(d)
+        if parent == d:
+            return None
+        d = parent
 
 
-def coverage(items, weight_fn, label_fn, ev, share):
-    """Section score 0-100, plus per-item rows. `impact` is the points the overall
-    score would gain if that item were proven, so gaps rank by what they cost."""
-    tw = sum(weight_fn(it) for it in items)
-    rows, gw = [], 0.0
-    for it in items:
-        w = weight_fn(it)
-        st = ev[it["skill"]]["strength"] if it["skill"] in ev else "none"
-        gw += w * STRENGTH[st]
-        rows.append({"skill": it["skill"], "weight": w, "strength": st, "flags": label_fn(it),
-                     "impact": round(100 * share * w * (1 - STRENGTH[st]) / tw, 2) if tw else 0.0})
-    return (100 * gw / tw if tw else 0.0), rows
+def check_onet(o, now=None):
+    if o.get("fetched_by") != "fetch_market.py":
+        refuse("onet.json was not written by fetch_market.py. Run fetch_market.py; never hand-write or edit market data.")
+    if not o.get("fetched_at"):
+        refuse("onet.json has no fetched_at. Re-run fetch_market.py.")
+    try:
+        at = datetime.fromisoformat(o["fetched_at"])
+    except ValueError:
+        refuse(f"onet.json fetched_at {o['fetched_at']!r} is not a timestamp. Re-run fetch_market.py.")
+    age = ((now or datetime.now(timezone.utc)) - at).days
+    if age > MAX_AGE_DAYS:
+        refuse(f"onet.json is {age} days old (max {MAX_AGE_DAYS}). Re-run fetch_market.py.")
+
+
+def checklist(o):
+    """The fixed set of scored items: (section, item, weight, label)."""
+    tech = sorted(o.get("tech_skills", []), key=lambda t: -t["posting_pct"])[:TECH_TOP]
+    core = [c for c in o.get("core_skills", []) if c["type"] in CORE_TYPES and c["importance"] >= CORE_MIN_IMPORTANCE]
+    items = [("tech", t["skill"], t["posting_pct"] * (IN_DEMAND_BOOST if t["in_demand"] else 1),
+              f"{t['posting_pct']:g}% of postings" + (", In Demand" if t["in_demand"] else "")) for t in tech]
+    items += [("core", c["skill"], c["importance"], f"{c['type']}, importance {c['importance']:g}") for c in core]
+    return items
 
 
 def score(o, r):
-    if not o.get("onet_code"):
-        raise ValueError("onet.json needs onet_code")
-    for s in r.get("skills", []):
-        if s.get("strength") not in STRENGTH:
-            raise ValueError(f"resume.json: {s.get('skill')!r} has strength {s.get('strength')!r}; use one of {', '.join(STRENGTH)}")
-
-    # O*NET lists hundreds of tools per occupation; scoring against all of them makes 80+
-    # unreachable. Only Hot or In Demand tools are scored; the rest still match.
-    all_tech = o.get("tech_skills", [])
-    tech = [t for t in all_tech if t.get("hot") or t.get("in_demand")]
-    all_core = o.get("core_skills", [])
-    core = [c for c in all_core if c.get("importance", 0) >= CORE_MIN_IMPORTANCE]
-
-    # Match against every O*NET item, scored or not, so a skill O*NET lists is never
-    # reported as "not in O*NET".
-    alias = {}
-    for it in all_tech + all_core:
-        alias[norm(it["skill"])] = it["skill"]
-        for al in it.get("aliases", []):
-            alias[norm(al)] = it["skill"]
+    items = checklist(o)
+    known = {norm(t["skill"]): t["skill"] for t in o.get("tech_skills", []) + o.get("core_skills", [])}
 
     ev, unmatched = {}, []
     for s in r.get("skills", []):
-        c = alias.get(norm(s["skill"]))
-        if c is None:
+        st = s.get("strength")
+        if st not in STRENGTH:
+            raise ValueError(f"{s.get('skill')!r} has strength {st!r}; use one of {', '.join(STRENGTH)}")
+        if st != "none" and not (s.get("evidence") or "").strip():
+            raise ValueError(f"{s.get('skill')!r} is graded {st} with no evidence line. Quote the resume, or grade it none.")
+        name = known.get(norm(s.get("onet_name") or s["skill"]))
+        if name is None:
             unmatched.append(s["skill"]); continue
-        if c not in ev or STRENGTH[s["strength"]] > STRENGTH[ev[c]["strength"]]:
-            ev[c] = s
-    scored = {it["skill"] for it in tech + core}
-    not_scored = sorted(c for c in ev if c not in scored)
+        if name not in ev or STRENGTH[st] > STRENGTH[ev[name]["strength"]]:
+            ev[name] = s
 
-    tech_w = lambda t: 1 + int(bool(t.get("hot"))) + int(bool(t.get("in_demand")))  # 3 if both, else 2
-    tech_score, trows = coverage(tech, tech_w, flags, ev, TECH_SHARE)
-    core_score, crows = coverage(core, lambda c: c["importance"], lambda c: f"importance {c['importance']}", ev, CORE_SHARE)
-    total = round(TECH_SHARE * tech_score + CORE_SHARE * core_score, 1)
-    ranked = sorted(trows + crows, key=lambda x: -x["impact"])
+    missing = [i for _, i, _, _ in items if i not in ev]
+    if missing:
+        raise ValueError(f"resume.json must grade every checklist item (use strength none when absent). Missing: {', '.join(missing)}")
+
+    rows, sub = [], {}
+    for section, share in (("tech", TECH_SHARE), ("core", CORE_SHARE)):
+        sec = [x for x in items if x[0] == section]
+        tw = sum(w for _, _, w, _ in sec)
+        got = 0.0
+        for _, name, w, label in sec:
+            st = ev[name]["strength"]
+            got += w * STRENGTH[st]
+            value = 100 * share * w / tw if tw else 0.0  # points this item is worth when proven
+            rows.append({"section": section, "skill": name, "weight": round(w, 2), "flags": label, "strength": st,
+                         "evidence": ev[name].get("evidence", ""), "value": round(value, 2),
+                         "impact": round(value * (1 - STRENGTH[st]), 2)})  # points gained if proven; gaps rank by it
+        sub[section] = 100 * got / tw if tw else 0.0
+    total = round(TECH_SHARE * sub["tech"] + CORE_SHARE * sub["core"], 1)
+    scored = {i for _, i, _, _ in items}
+    ranked = sorted(rows, key=lambda x: -x["impact"])
 
     return {
         "role": o.get("role"), "onet_code": o["onet_code"], "onet_title": o.get("onet_title"),
-        "pulled_on": o.get("pulled_on"), "bls": o.get("bls"),
-        "score": total, "band": band(total),
-        "subscores": {"tech": round(tech_score, 1), "core": round(core_score, 1)},
+        "fetched_at": o["fetched_at"], "bls": o.get("bls"), "sources": o.get("sources", {}),
+        "score": total, "band": band(total), "bands_calibrated": BANDS_CALIBRATED,
+        "subscores": {k: round(v, 1) for k, v in sub.items()},
         "top_gaps": [x for x in ranked if x["strength"] in ("none", "stale")][:5],
         "unproven_claims": [x for x in ranked if x["strength"] == "listed"][:5],
-        "strengths": sorted([x for x in trows + crows if x["strength"] == "proven"], key=lambda x: -x["weight"] / (100 if x["flags"].startswith("importance") else 3))[:5],
-        "dead_weight": sorted(unmatched),
-        "in_onet_not_scored": not_scored,
+        "strengths": sorted([x for x in rows if x["strength"] == "proven"], key=lambda x: -x["value"])[:5],
+        "in_onet_not_scored": sorted(n for n in ev if n not in scored),
+        "unmatched": sorted(unmatched),  # Claude labels each: alternate stack, not yet in O*NET, or dead weight
         "all": ranked,
     }
 
 
-def money(v, prefix=""):
-    return f"{prefix}{v:,}" if isinstance(v, (int, float)) else "n/a"
-
-
 def main():
     ap = argparse.ArgumentParser()
-    ap.add_argument("onet"); ap.add_argument("resume"); ap.add_argument("--out")
+    ap.add_argument("onet"); ap.add_argument("resume", nargs="?"); ap.add_argument("--out")
+    ap.add_argument("--checklist", action="store_true")
     a = ap.parse_args()
+    o = json.load(open(a.onet))
+    check_onet(o)
+
+    if a.checklist:
+        print(f"Grade every item below in resume.json ({o['onet_code']} {o.get('onet_title')}):")
+        for section, name, w, label in checklist(o):
+            print(f"  [{section}] {name}  ({label})")
+        return
+    if not a.resume:
+        ap.error("give resume.json, or --checklist")
+    for path in [a.resume] + ([a.out] if a.out else []):
+        repo = in_git_repo(path)
+        if repo:
+            refuse(f"{path} is inside the git repo {repo}. Resumes are personal data: move working files to ~/resume-scores/<person>/.")
+
     try:
-        rep = score(json.load(open(a.onet)), json.load(open(a.resume)))
+        rep = score(o, json.load(open(a.resume)))
     except (ValueError, KeyError) as e:
         sys.exit(f"error: {e}")
     if a.out:
         with open(a.out, "w") as f:
             json.dump(rep, f, indent=2)
 
-    print(f"{rep['role']}: {rep['score']}/100 ({rep['band']}) | O*NET {rep['onet_code']} {rep['onet_title']}")
+    print(f"{rep['role']}: {rep['score']}/100 ({rep['band']}{'' if BANDS_CALIBRATED else ', bands uncalibrated'}) | O*NET {rep['onet_code']} {rep['onet_title']}, pulled {rep['fetched_at'][:10]}")
     print(f"  Subscores: Tech {rep['subscores']['tech']} · Core {rep['subscores']['core']}")
-    b = rep["bls"]
-    if b:
-        print(f"  BLS: {b.get('growth_pct', 'n/a')}% growth, median {money(b.get('median_pay'), '$')}, {money(b.get('annual_openings'))} openings/yr")
-    else:
-        print("  WARNING: no BLS block")
+    b = rep["bls"] or {}
+    print(f"  BLS {b.get('period')}: {b.get('growth_pct')}% growth, median ${b.get('median_wage') or 0:,.0f}, {b.get('annual_openings_k')}K openings/yr")
     for x in rep["top_gaps"]:
-        print(f"  GAP   {x['skill']:<28} {x['flags']:<22} resume: {x['strength']:<7} +{x['impact']} pts if proven")
+        print(f"  GAP   {x['skill']:<34} {x['flags']:<30} resume: {x['strength']:<6} +{x['impact']} pts if proven")
     for x in rep["unproven_claims"]:
-        print(f"  PROVE {x['skill']:<28} {x['flags']:<22} resume: listed  +{x['impact']} pts if proven")
+        print(f"  PROVE {x['skill']:<34} {x['flags']:<30} resume: listed +{x['impact']} pts if proven")
+    if rep["unmatched"]:
+        print(f"  Not scored for this occupation (label each): {', '.join(rep['unmatched'])}")
 
 
 if __name__ == "__main__":
