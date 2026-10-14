@@ -13,6 +13,7 @@ from datetime import datetime, timezone
 ONET = "https://www.onetonline.org"
 BLS_URL = "https://www.bls.gov/emp/tables/occupational-projections-and-characteristics.htm"
 CORE_MIN_IMPORTANCE = 50
+SCOPE = "15-"  # computer and mathematical occupations; this skill scores software engineering resumes only
 CORE_TABLES = [  # (type, url path segment, file prefix)
     ("transferable", "sc", "Transferable_Skills"),
     ("essential", "sb", "Essential_Skills"),
@@ -56,7 +57,10 @@ def search(term, ua):
     if not hits:
         fail(f"{url}: no occupations found for {term!r}")
     seen = set()
-    return [(c, html.unescape(t)) for c, t in hits if not (c in seen or seen.add(c))]
+    hits = [(c, html.unescape(t)) for c, t in hits if c.startswith(SCOPE) and not (c in seen or seen.add(c))]
+    if not hits:
+        fail(f"no software engineering (15-xxxx) occupation matches {term!r}. This skill scores software engineering resumes only.")
+    return hits
 
 
 def cells(tr):
@@ -83,9 +87,15 @@ def bls(code, ua):
     fail(f"{BLS_URL}: no row for SOC {soc}")
 
 
-def fetch(code, role, email):
+def check_code(code):
     if not re.fullmatch(r"\d{2}-\d{4}\.\d{2}", code):
         fail(f"{code!r} is not an O*NET code like 15-1252.00")
+    if not code.startswith(SCOPE):
+        fail(f"{code} is outside software engineering (15-xxxx). This skill scores software engineering resumes only.")
+
+
+def fetch(code, role, email):
+    check_code(code)
     ua = f"resume-market-scorer/1.0 (contact: {email})"
     tag = code.replace(".", "-")
     sources = {"summary": f"{ONET}/link/summary/{code}"}
@@ -137,6 +147,7 @@ def main():
         return
     if not (a.code and a.role and a.out):
         ap.error("give --search TERM, or CODE --role ROLE --out onet.json")
+    check_code(a.code)
     email = os.environ.get("BLS_CONTACT_EMAIL", "").strip()
     if "@" not in email:
         sys.exit("FETCH FAILED: set BLS_CONTACT_EMAIL to your email. BLS refuses requests without a contact address.")

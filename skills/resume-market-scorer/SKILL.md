@@ -1,11 +1,13 @@
 ---
 name: resume-market-scorer
-description: Score a resume against in-demand skills using live O*NET and BLS data, pulled by script on every run, BEFORE any resume editing. Maps the target role to its O*NET occupation, weights the top Hot Technologies by their share of job postings and Transferable Skills/Knowledge by O*NET importance, grades the resume's evidence for each, and outputs a 0–100 market-fit score with ranked gaps, unproven claims, strengths and the BLS lane outlook. Use this whenever someone wants to score, grade, benchmark, audit, or "ground" a resume, check resume skills against the market, find skill gaps for a target role, or asks "how does my resume stack up," even if they don't say "score." Always run this before rewriting or tailoring a resume.
+description: Score a software engineering resume against in-demand skills using live O*NET and BLS data, pulled by script on every run, and optionally against a specific job posting, BEFORE any resume editing. Maps the target role to its O*NET computer occupation (15-xxxx), weights the top Hot Technologies by their share of job postings and Transferable Skills/Knowledge by O*NET importance, grades the resume's evidence for each, and outputs a 0–100 market-fit score (plus a job-match score when a posting is given) with ranked gaps, unproven claims, strengths, ATS wording fixes and the BLS lane outlook. Use this whenever someone wants to score, grade, benchmark, audit, or "ground" a software engineering resume, check resume skills against the market, find skill gaps for a target role, or asks "how does my resume stack up," even if they don't say "score." Always run this before rewriting or tailoring a resume.
 ---
 
 # Resume Market Scorer
 
 Step 1 of the resume workflow: **ground the data, then edit.** This skill measures; it does not rewrite.
+
+**Scope: software engineering resumes only.** The scripts accept O*NET computer and mathematical occupations (15-xxxx) and refuse anything else. For any other kind of resume, say this skill doesn't cover it.
 
 **No fetch, no score.** Every run pulls O*NET and BLS live with `fetch_market.py`. Never score from memory, from general judgment, or from hand-written or hand-edited data; `score.py` refuses it. If the fetch fails, report the error to the user and stop.
 
@@ -15,8 +17,9 @@ Scripts are in `${CLAUDE_SKILL_DIR}/scripts/` (call it `S`). Run them with `pyth
 
 1. **Resume:** a file or pasted text.
 2. **Target role:** title and level. If there are several lanes, score each separately.
+3. **Job posting (optional, recommended):** the posting they're applying to. This is what an employer's ATS actually filters on.
 
-If the role is missing, ask one question for it. Nothing else is required.
+If the role is missing, ask one question for it. Ask once whether they have a posting; don't require one.
 
 **A resume is personal data.** Every resume and working file lives in `~/resume-scores/<person>/`. Never put one in a repo, a commit, an issue or a README. `score.py` refuses to run on files inside a git repo.
 
@@ -29,6 +32,8 @@ python3 "$S/fetch_market.py" --search "<role>"
 ```
 
 Pick the closest code from the list and state it, with why, in one line. If two fit, score both.
+
+**Emerging roles have no O*NET occupation.** AI engineer, ML engineer, LLM or prompt engineer, platform engineer and similar roles map only to a broader occupation (usually 15-1252.00 Software Developers), and their newest tools (LangChain, RAG, vector databases) are "not yet in O*NET". Say so at the top of the report, and ask for a job posting: the job-match score is the accurate measure for these roles.
 
 ### 2. Fetch live data
 
@@ -66,7 +71,24 @@ Grade **every** checklist item in `resume.json`. One entry per item; also add an
 
 - `onet_name` maps the resume's term to O*NET's exact name. Use it whenever they differ ("AWS" → "Amazon Web Services AWS software", "GCP" → "Google Cloud software").
 - For an "any of" slot, grade the member(s) the person actually uses. Don't add entries for the rivals they don't use.
-- `evidence` is a line quoted from the resume. No evidence on the page means `none`. Don't credit what the resume doesn't show.
+- `evidence` is a line quoted from the resume, exactly; use `...` for skipped words. `score.py --text` refuses any quote it can't find on the resume. No evidence on the page means `none`. Don't credit what the resume doesn't show.
+
+### 3b. With a posting: list its skills → `jd.json`
+
+Save the posting as plain text in `~/resume-scores/<person>/jd.txt`. List **every** skill it asks for:
+
+```json
+{"title": "Senior AI Engineer", "company": "Example Co", "skills": [
+  {"skill": "Python", "level": "required", "quote": "5+ years of Python"},
+  {"skill": "Cloud", "level": "required", "quote": "experience with AWS or Azure", "any_of": ["AWS", "Azure"]},
+  {"skill": "Retrieval-Augmented Generation", "level": "preferred", "quote": "Retrieval-Augmented Generation (RAG)"}
+]}
+```
+
+- `level` is `required` or `preferred`, as the posting says. If it doesn't distinguish, use `required`.
+- `quote` is copied verbatim from the posting. `score.py` refuses any quote not in `jd.txt`.
+- `skill` uses the posting's own wording, since that's what its ATS matches. Use `any_of` when the posting offers alternatives.
+- Then grade every posting skill in `resume.json` too, under the same skill name (`--checklist --jd jd.json --jd-text jd.txt` lists them all).
 
 ### 4. Score
 
@@ -74,6 +96,8 @@ Save the resume as plain text in `~/resume-scores/<person>/resume.txt`, then:
 
 ```bash
 python3 "$S/score.py" onet.json resume.json --text resume.txt --out report.json
+# with a posting:
+python3 "$S/score.py" onet.json resume.json --text resume.txt --jd jd.json --jd-text jd.txt --out report.json
 ```
 
 The formula is fixed; it never changes per person:
@@ -83,6 +107,7 @@ The formula is fixed; it never changes per person:
 - **BLS** is the lane outlook only. It never changes the score.
 - **Bands:** 80+ Strong · 65–79 Competitive · 50–64 Gaps · under 50 Mismatch. The bands are **uncalibrated** until 3–5 real resumes have been run; say so in every report.
 - Each item's `impact` is the points the score gains if it were proven. Gaps rank by impact.
+- **Job match (with a posting):** a separate score, never blended with market fit. Each posting skill is weighted 2 if required, 1 if preferred, and graded with the same strengths. Its ATS check uses the posting's exact terms: if the posting says "Retrieval-Augmented Generation" and the resume only says "RAG", that's a fix.
 - **ATS wording is a separate check; it never changes the score.** The score asks "does this person have the skill?" `onet_name` mappings answer that, but no ATS can be trusted to make the same mapping ("GCP" for "Google Cloud", "JS" for "JavaScript"). So for every scored tool the person has, `--text` checks that the resume text literally carries each standard form (full name and abbreviation) and prints the exact wording to add.
 
 ### 5. Report
@@ -108,6 +133,12 @@ ATS wording: [N] of [M] tools written in every standard form
 
 Not scored for this occupation
 - [Skill] — [alternate stack | not yet in O*NET | dead weight]
+
+Job match (only with a posting): [XX]/100 ([band], bands uncalibrated). [Title] at [Company]
+Required skills shown: [N] of [M]
+1. [Skill] — [required | preferred], resume: [strength], +[impact] pts if proven
+ATS wording (posting's terms): [N] of [M] present
+1. [Skill] — the posting says "[term]"; use that exact term
 
 Sources: [every URL from onet.json "sources"]
 ```

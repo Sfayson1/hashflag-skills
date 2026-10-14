@@ -47,6 +47,26 @@ ATS_FORMS = {
 }
 
 
+def has_term(term, text):
+    """Whole-word, case-insensitive literal match, the way a keyword filter sees it."""
+    return re.search(r"(?<![\w.#+])" + re.escape(term) + r"(?![\w#+])", text, re.I) is not None
+
+
+def quoted(quote, text):
+    """True when the quote appears in the text. "..." may stand for skipped words."""
+    flat = lambda t: " ".join(t.replace("\u2019", "'").replace("\u201c", '"').replace("\u201d", '"').split()).lower()
+    hay, pos = flat(text), 0
+    for part in re.split(r"\.\.\.|\u2026", quote):
+        part = flat(part)
+        if not part:
+            continue
+        pos = hay.find(part, pos)
+        if pos < 0:
+            return False
+        pos += len(part)
+    return True
+
+
 def ats_check(rows, text):
     """For each scored tool the person has, which standard forms the resume text is missing."""
     out = []
@@ -54,7 +74,7 @@ def ats_check(rows, text):
         if x["section"] != "tech" or x["strength"] == "none":
             continue
         forms = ATS_FORMS.get(x["via_onet"], [x["via_onet"]])
-        missing = [f for f in forms if not re.search(r"(?<![\w.#+])" + re.escape(f) + r"(?![\w#+])", text, re.I)]
+        missing = [f for f in forms if not has_term(f, text)]
         out.append({"skill": x["via_onet"], "forms": forms, "missing": missing,
                     "write": f"{forms[0]} ({forms[1]})" if len(forms) == 2 else forms[0]})
     return {"checked": len(out), "ready": sum(1 for a in out if not a["missing"]), "fixes": [a for a in out if a["missing"]]}
@@ -128,6 +148,8 @@ def score(o, r, text=None):
             raise ValueError(f"{s.get('skill')!r} has strength {st!r}; use one of {', '.join(STRENGTH)}")
         if st != "none" and not (s.get("evidence") or "").strip():
             raise ValueError(f"{s.get('skill')!r} is graded {st} with no evidence line. Quote the resume, or grade it none.")
+        if st != "none" and text is not None and not quoted(s["evidence"], text):
+            raise ValueError(f"{s.get('skill')!r}: evidence is not on the resume. Quote it exactly (use ... for skipped words): {s['evidence'][:80]!r}")
         name = known.get(norm(s.get("onet_name") or s["skill"]))
         if name is None:
             unmatched.append(s["skill"]); continue
@@ -172,12 +194,67 @@ def score(o, r, text=None):
     }
 
 
+JD_WEIGHT = {"required": 2, "preferred": 1}
+
+
+def jd_score(jd, jd_text, r, text=None):
+    """Score the resume against one job posting. Every posting skill carries a verbatim quote
+    from the posting, so nothing in the checklist is invented."""
+    items = jd.get("skills", [])
+    if not items:
+        raise ValueError("jd.json has no skills. Read the posting and list every skill it asks for.")
+    for it in items:
+        if it.get("level") not in JD_WEIGHT:
+            raise ValueError(f"jd.json: {it.get('skill')!r} level must be required or preferred")
+        if not it.get("quote") or not quoted(it["quote"], jd_text):
+            refuse(f"jd.json: the quote for {it.get('skill')!r} is not in the posting. Every posting skill must quote the posting verbatim.")
+
+    grades = {}
+    for s in r.get("skills", []):
+        for key in (s["skill"], s.get("onet_name")):
+            if key and (norm(key) not in grades or STRENGTH[s["strength"]] > STRENGTH[grades[norm(key)]["strength"]]):
+                grades[norm(key)] = s
+    rows, missing = [], []
+    for it in items:
+        terms = it.get("any_of") or [it["skill"]]
+        found = [(t, grades[norm(t)]) for t in terms if norm(t) in grades]
+        if not found:
+            missing.append(it["skill"]); continue
+        term, best = max(found, key=lambda f: STRENGTH[f[1]["strength"]])
+        rows.append({"skill": it["skill"], "level": it["level"], "weight": JD_WEIGHT[it["level"]], "term": term,
+                     "strength": best["strength"], "evidence": best.get("evidence", "")})
+    if missing:
+        raise ValueError(f"resume.json must grade every posting skill (use strength none when absent). Missing: {', '.join(missing)}")
+
+    tw = sum(x["weight"] for x in rows)
+    for x in rows:
+        x["impact"] = round(100 * x["weight"] * (1 - STRENGTH[x["strength"]]) / tw, 2)
+    total = round(100 * sum(x["weight"] * STRENGTH[x["strength"]] for x in rows) / tw, 1)
+    # The posting's own words are what its ATS filters on.
+    ats = None
+    if text is not None:
+        have = [x for x in rows if x["strength"] != "none"]
+        fixes = [{"skill": x["skill"], "write": x["term"]} for x in have if not has_term(x["term"], text)]
+        ats = {"checked": len(have), "ready": len(have) - len(fixes), "fixes": fixes}
+    req = [x for x in rows if x["level"] == "required"]
+    return {
+        "title": jd.get("title"), "company": jd.get("company"), "score": total, "band": band(total),
+        "required_shown": sum(1 for x in req if x["strength"] != "none"), "required_total": len(req),
+        "gaps": sorted([x for x in rows if x["strength"] != "proven"], key=lambda x: -x["impact"]),
+        "ats": ats, "all": rows,
+    }
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("onet"); ap.add_argument("resume", nargs="?"); ap.add_argument("--out")
     ap.add_argument("--checklist", action="store_true")
     ap.add_argument("--text", help="the resume as plain text, for the ATS wording check")
+    ap.add_argument("--jd", help="jd.json: the target posting's skills, each with a verbatim quote")
+    ap.add_argument("--jd-text", help="the target posting as plain text")
     a = ap.parse_args()
+    if bool(a.jd) != bool(a.jd_text):
+        ap.error("--jd and --jd-text go together")
     o = json.load(open(a.onet))
     check_onet(o)
 
@@ -186,16 +263,25 @@ def main():
         for section, name, w, label, _ in checklist(o):
             print(f"  [{section}] {name}  ({label})")
         print("For an 'any of' slot, grade the member(s) the person uses; the best one counts.")
+        if a.jd:
+            jd = json.load(open(a.jd))
+            print(f"\nAlso grade every skill from the posting ({jd.get('title')}, {jd.get('company')}):")
+            for it in jd.get("skills", []):
+                print(f"  [{it.get('level')}] {it.get('skill')}" + (f"  (any of: {', '.join(it['any_of'])})" if it.get("any_of") else ""))
         return
     if not a.resume:
         ap.error("give resume.json, or --checklist")
-    for path in [a.resume] + [p for p in (a.out, a.text) if p]:
+    for path in [a.resume] + [p for p in (a.out, a.text, a.jd, a.jd_text) if p]:
         repo = in_git_repo(path)
         if repo:
             refuse(f"{path} is inside the git repo {repo}. Resumes are personal data: move working files to ~/resume-scores/<person>/.")
 
     try:
-        rep = score(o, json.load(open(a.resume)), open(a.text).read() if a.text else None)
+        resume = json.load(open(a.resume))
+        text = open(a.text).read() if a.text else None
+        rep = score(o, resume, text)
+        if a.jd:
+            rep["job"] = jd_score(json.load(open(a.jd)), open(a.jd_text).read(), resume, text)
     except (ValueError, KeyError) as e:
         sys.exit(f"error: {e}")
     if a.out:
@@ -219,6 +305,16 @@ def main():
             print(f"  ATS   {f['skill']:<34} missing {', '.join(repr(m) for m in f['missing'])}; write {f['write']!r}")
     if rep["unmatched"]:
         print(f"  Not scored for this occupation (label each): {', '.join(rep['unmatched'])}")
+    j = rep.get("job")
+    if j:
+        print(f"\nJob match: {j['score']}/100 ({j['band']}, bands uncalibrated) | {j['title']} at {j['company']}")
+        print(f"  Required skills shown: {j['required_shown']} of {j['required_total']}")
+        for x in j["gaps"][:8]:
+            print(f"  {'GAP' if x['strength'] in ('none', 'stale') else 'PROVE':<5} {x['skill']:<34} {x['level']:<9} resume: {x['strength']:<7} +{x['impact']} pts if proven")
+        if j["ats"]:
+            print(f"  ATS wording (posting's terms): {j['ats']['ready']} of {j['ats']['checked']} present")
+            for f in j["ats"]["fixes"]:
+                print(f"  ATS   {f['skill']:<34} the posting says {f['write']!r}; use that exact term")
 
 
 if __name__ == "__main__":

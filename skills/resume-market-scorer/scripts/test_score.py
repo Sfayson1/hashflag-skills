@@ -1,7 +1,7 @@
 # Run: python3 test_score.py   (synthetic data only; never put a real resume here)
 import json, os, subprocess, sys, tempfile
 from datetime import datetime, timedelta, timezone
-from score import checklist, score
+from score import checklist, jd_score, quoted, score
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 now = datetime.now(timezone.utc).isoformat(timespec="seconds")
@@ -79,20 +79,57 @@ assert score(stacks, {"skills": [ev("C#"), ev("Amazon Web Services AWS software"
 
 
 # ATS wording: a separate check that never changes the score
-gcp_resume = {"skills": [ev("C#"), {"skill": "GCP", "onet_name": "Google Cloud software", "strength": "proven", "evidence": "x"},
+gcp_resume = {"skills": [ev("C#"), {"skill": "GCP", "onet_name": "Google Cloud software", "strength": "proven", "evidence": "quoted line"},
                          ev("JavaScript"), ev("Python")]}
 plain = score(stacks, gcp_resume)
-gcp_only = score(stacks, gcp_resume, "Deployed services on GCP. Built APIs in C# and JavaScript with Python tooling.")
+gcp_only = score(stacks, gcp_resume, "Deployed services on GCP. Built APIs in C# and JavaScript with Python tooling. A quoted line.")
 assert gcp_only["score"] == plain["score"] and plain["ats"] is None
 fix = {f["skill"]: f for f in gcp_only["ats"]["fixes"]}
 assert list(fix) == ["Google Cloud software"] and fix["Google Cloud software"]["missing"] == ["Google Cloud"]
 assert fix["Google Cloud software"]["write"] == "Google Cloud (GCP)"
-both = score(stacks, gcp_resume, "Deployed services on Google Cloud Platform (GCP). Built APIs in C# and JavaScript with Python.")
+both = score(stacks, gcp_resume, "Deployed services on Google Cloud Platform (GCP). Built APIs in C# and JavaScript with Python. A quoted line.")
 assert both["ats"] == {"checked": 4, "ready": 4, "fixes": []}, both["ats"]
 # "JavaScript" is not "Java", and "C" is not "C#" or "C++"
 java = score(stacks, {"skills": [ev("Oracle Java"), ev("Amazon Web Services AWS software"), ev("JavaScript"), ev("Python")]},
-             "JavaScript and Python on Amazon Web Services (AWS). Some C.")
+             "JavaScript and Python on Amazon Web Services (AWS). Some C. A quoted line.")
 assert [f["skill"] for f in java["ats"]["fixes"]] == ["Oracle Java"], java["ats"]
+
+
+# evidence must be on the resume; "..." stands for skipped words
+assert quoted("Built React front end ... training tracker", "- Built React front end for the unit training tracker")
+assert not quoted("Built React front end for the unit", "Built a React app")
+try:
+    score(stacks, gcp_resume, "A resume that never says the quoted words.")
+    raise AssertionError("expected ValueError")
+except ValueError as e:
+    assert "evidence is not on the resume" in str(e), e
+
+# job-description mode: the posting is the checklist, every item quotes the posting
+posting = "Senior AI Engineer. Required: Python, LangChain, and AWS or Azure. Nice to have: Retrieval-Augmented Generation (RAG)."
+jd = {"title": "Senior AI Engineer", "company": "Example Co", "skills": [
+    {"skill": "Python", "level": "required", "quote": "Required: Python"},
+    {"skill": "LangChain", "level": "required", "quote": "LangChain"},
+    {"skill": "Cloud", "level": "required", "quote": "AWS or Azure", "any_of": ["AWS", "Azure"]},
+    {"skill": "Retrieval-Augmented Generation", "level": "preferred", "quote": "Retrieval-Augmented Generation (RAG)"}]}
+resume_text = "Built RAG apps with LangChain and Python on Azure, cutting cost 30%. Skills: Python"
+jr = {"skills": [{"skill": "Python", "strength": "proven", "evidence": "with LangChain and Python on Azure, cutting cost 30%"},
+                 {"skill": "LangChain", "strength": "proven", "evidence": "Built RAG apps with LangChain"},
+                 {"skill": "Azure", "strength": "proven", "evidence": "on Azure, cutting cost 30%"},
+                 {"skill": "Retrieval-Augmented Generation", "strength": "applied", "evidence": "Built RAG apps"}]}
+j = jd_score(jd, posting, jr, resume_text)
+assert j["required_shown"] == 3 and j["required_total"] == 3
+assert j["score"] == round(100 * (2 + 2 + 2 + 0.7) / 7, 1), j["score"]  # required x2, preferred x1
+assert [f["write"] for f in j["ats"]["fixes"]] == ["Retrieval-Augmented Generation"]  # resume says only "RAG"
+try:  # a quote that isn't in the posting is refused
+    jd_score({"skills": [{"skill": "Rust", "level": "required", "quote": "Rust"}]}, posting, jr)
+    raise AssertionError("expected refusal")
+except SystemExit as e:
+    assert "not in the posting" in str(e), e
+try:  # every posting skill must be graded
+    jd_score(jd, posting, {"skills": jr["skills"][:1]})
+    raise AssertionError("expected ValueError")
+except ValueError as e:
+    assert "Missing: LangChain, Cloud, Retrieval-Augmented Generation" in str(e), e
 
 
 def run(o, resume_dir):
