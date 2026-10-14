@@ -1,6 +1,6 @@
 ---
 format: 1920x1080
-duration: 70s
+duration: 75s
 message: "Fix-It Saturday turns broken things into fixed things, and neighbors into fixers"
 arc: Hook → Problem → Claim → How it works → Proof → Close
 audience: Alder Bay residents

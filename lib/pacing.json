@@ -13,10 +13,10 @@
     "source": "Orson, VWC Labor Day run; 2.2 until measured per voice"
   },
   "kokoro": {
-    "wps": 3.05,
-    "low": 3.0,
-    "high": 3.35,
-    "source": "Measured 2026-10-14: am_michael 3.05, af_heart 3.34 wps on a 73-word passage, hyperframes 0.8.91"
+    "wps": 2.85,
+    "low": 2.7,
+    "high": 3.0,
+    "source": "Measured 2026-10-14 in full pipeline runs (per-line clips): am_michael 2.70, af_heart 2.97 wps over 215 words; hyperframes 0.8.91"
   },
   "elevenlabs": {
     "wps": 2.42,

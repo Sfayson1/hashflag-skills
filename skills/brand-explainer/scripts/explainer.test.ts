@@ -4,9 +4,9 @@ import { existsSync, mkdirSync, mkdtempSync, readFileSync, writeFileSync } from 
 import { homedir, tmpdir } from "node:os";
 import { join } from "node:path";
 import { loadBrand } from "../../../lib/brand.ts";
-import { copyOfMarkdown, numerals, type Rule, rulesFrom, scan, visibleText } from "./check-copy.ts";
-import { frameMd, stage } from "./stage.ts";
-import { checkAudio, checkWords, setGround, spokenLines, wordBand } from "./verify.ts";
+import { captionText, copyOfMarkdown, numerals, type Rule, rulesFrom, scan, visibleText } from "./check-copy.ts";
+import { ctaPlate, frameMd, stage, textPairs } from "./stage.ts";
+import { captionDiff, checkAudio, checkWords, setGround, spokenLines, wordBand } from "./verify.ts";
 
 // Generic rules shaped like a real pack's, to exercise the gate engine.
 const rules: Rule[] = rulesFrom({
@@ -102,9 +102,21 @@ test("stage: writes frame.md, caption skin and fonts, and refuses to overwrite e
   stage("brands/default", project, skills, true);
 });
 
+test("stage: CTA plate falls back when the accent can't carry text", () => {
+  // Wrenfield: pumpkin accent reads with neither ink (4.30) nor canvas (2.67)
+  assert.deepEqual(ctaPlate(loadBrand("fixtures/nonprofit").brand.colors), { fill: "accent2", text: "canvas" });
+  assert.deepEqual(ctaPlate(loadBrand("fixtures/small-business").brand.colors), { fill: "accent", text: "ink" });
+  assert.equal(ctaPlate({ ink: "#777777", canvas: "#888888" }), undefined);
+  assert.ok(textPairs({ ink: "#000000", canvas: "#ffffff" }).length === 2);
+});
+
 test("stage: frame.md keeps distinct display and body families", () => {
   const md = frameMd(loadBrand("brands/default").brand);
   assert.match(md, /display: \{ fontFamily: "Inter", cqw: 10, weight: 700/);
+  // a heading that only ships at 400 is not asked for 700
+  const one = loadBrand("brands/default").brand;
+  const md400 = frameMd({ ...one, fonts: { ...one.fonts, heading: { family: "Archivo Black", license: "OFL-1.1", files: ["fonts/ArchivoBlack-400.woff2"] } } });
+  assert.match(md400, /h1: {6}\{ fontFamily: "Archivo Black", cqw: 6.5, weight: 400/);
   assert.match(md, /label: {3}\{ fontFamily: "JetBrains Mono"/);
 });
 
@@ -126,9 +138,23 @@ test("stage: upstream token mapping picks the pack's roles", { skip: !existsSync
 
 const SCRIPT = `# SCRIPT\n\n## Line 1 — Hook (Frame 1)\n\n    One two three four.\n\n## Line 2 — End (Frame 2)\n\n\tFive six.\n`;
 
+test("copy gate: caption words are scanned", () => {
+  const html = `<template><script>var GROUPS = [{"id":"g0","text":"Thank our clients","words":[]},{"id":"g1","text":"today","words":[]}];</script></template>`;
+  const pantry = rulesFrom(loadBrand("fixtures/nonprofit").brand);
+  assert.equal(visibleText(html).trim(), "");
+  assert.deepEqual(scan(captionText(html), pantry).map((h) => h.line), [1]);
+});
+
+test("numerals: ordinals, scene lines, and no count-up zeros", () => {
+  assert.deepEqual(numerals("    On September twelfth, the second Saturday.")[0].figures, ["twelfth", "second"]);
+  assert.equal(numerals("- scene: A grid of 64 people and 91 items").length, 1);
+  assert.deepEqual(numerals("    Opens on the 12th.")[0].figures, ["12th"]);
+  assert.deepEqual(numerals(visibleText('<span class="n">0</span> people'), true), []);
+});
+
 test("verify: spoken lines and word band", () => {
   assert.deepEqual(spokenLines(SCRIPT), ["One two three four.", "Five six."]);
-  assert.deepEqual(wordBand("kokoro", 60, 90), { low: 201, high: 270 });
+  assert.deepEqual(wordBand("kokoro", 60, 90), { low: 180, high: 243 });
   assert.equal(checkWords(SCRIPT, "kokoro", 60, 90).ok, false);
 });
 
@@ -143,4 +169,11 @@ test("verify: ground replaces the #root background and is idempotent", () => {
   const once = setGround(html, "#091f40");
   assert.match(once, /background: #091f40;/);
   assert.equal(setGround(once, "#091f40"), once);
+});
+
+test("verify: captions must match the script, number forms aside", () => {
+  const script = "## Line 1\n\n    The library's sign-in sheet says sixty-four people came on the twelfth.\n";
+  const words = (t: string) => ({ voices: [{ words: t.split(" ").map((text) => ({ text })) }] });
+  assert.deepEqual(captionDiff(script, words("The library's sign in sheet says 64 people came on the 12th.")), []);
+  assert.deepEqual(captionDiff(script, words("The library's sign and sheet says 64 people came on the 12th.")), ['line 1: script has "in", captions have "and"']);
 });

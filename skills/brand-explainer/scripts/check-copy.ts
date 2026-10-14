@@ -60,8 +60,17 @@ export const copyOfMarkdown = (md: string) => md.replace(/^#.*$/gm, "");
 export const visibleText = (html: string) =>
   html.replace(/<(style|script)[\s\S]*?<\/\1>/gi, (m) => m.replace(/[^\n]/g, "")).replace(/<[^>]*>/g, " ");
 
+// Burned-in captions live in a <script> as `var GROUPS = [...]`, so visibleText would drop them.
+// One caption group per line.
+export function captionText(html: string): string {
+  const m = html.match(/var GROUPS = (\[[\s\S]*?\]);/);
+  return m ? (JSON.parse(m[1]) as { text: string }[]).map((g) => g.text).join("\n") : visibleText(html);
+}
+
 const WORD_NUM =
   /\b(?:one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve|thirteen|fourteen|fifteen|sixteen|seventeen|eighteen|nineteen|twenty|thirty|forty|fifty|sixty|seventy|eighty|ninety|hundred|thousand|million|billion)(?:[- ](?:one|two|three|four|five|six|seven|eight|nine))?\b/gi;
+const ORDINAL =
+  /\b(?:first|second|third|fourth|fifth|sixth|seventh|eighth|ninth|tenth|eleventh|twelfth|thirteenth|fourteenth|fifteenth|sixteenth|seventeenth|eighteenth|nineteenth|twentieth|thirtieth|(?:twenty|thirty)-(?:first|second|third|fourth|fifth|sixth|seventh|eighth|ninth))\b|\b\d+(?:st|nd|rd|th)\b/gi;
 const DIGITS = /\b\d[\d,.]*\s*%|\$\s?\d[\d,.]*|\b\d[\d,.]*\b/g;
 
 // Every figure the viewer hears or reads is a publishing act; list them for sign-off.
@@ -69,10 +78,11 @@ export function numerals(text: string, html = false) {
   const out: { line: number; figures: string[] }[] = [];
   text.split(/\r?\n/).forEach((line, i) => {
     const spoken = /^( {4}|\t)\S/.test(line);
-    const vo = /^\s*-\s*(voiceover|vo|narration|voice_over):/i.test(line);
+    const vo = /^\s*-\s*(voiceover|vo|narration|voice_over|scene):/i.test(line); // scene: describes on-screen text
     const quoted = /["“][^"”]*\d[^"”]*["”]/.test(line);
     if (!html && !spoken && !vo && !quoted) return;
-    const all = [...(line.match(DIGITS) ?? []), ...(spoken || vo ? (line.match(WORD_NUM) ?? []) : [])];
+    const digits = (line.match(DIGITS) ?? []).filter((d) => !(html && d === "0")); // count-ups start at 0
+    const all = [...digits, ...(line.match(ORDINAL) ?? []), ...(spoken || vo ? (line.match(WORD_NUM) ?? []) : [])];
     if (all.length) out.push({ line: i + 1, figures: [...new Set(all)] });
   });
   return out;
@@ -102,7 +112,7 @@ if (process.argv[1] === fileURLToPath(import.meta.url)) {
   for (const file of files) {
     const rel = file.slice(root.length + 1);
     const raw = readFileSync(file, "utf8");
-    const text = file.endsWith(".html") ? visibleText(raw) : copyOfMarkdown(raw);
+    const text = file.endsWith("captions.html") ? captionText(raw) : file.endsWith(".html") ? visibleText(raw) : copyOfMarkdown(raw);
     for (const h of scan(text, rules)) {
       total++;
       console.error(`✗ ${rel}:${h.line}  "${h.found}" → use ${h.fix}`);
@@ -112,7 +122,8 @@ if (process.argv[1] === fileURLToPath(import.meta.url)) {
     console.log("\nFigures to verify against the source:");
     for (const file of files) {
       const html = file.endsWith(".html");
-      for (const n of numerals(html ? visibleText(readFileSync(file, "utf8")) : readFileSync(file, "utf8"), html))
+      const raw = readFileSync(file, "utf8");
+      for (const n of numerals(file.endsWith("captions.html") ? captionText(raw) : html ? visibleText(raw) : raw, html))
         console.log(`  ${file.slice(root.length + 1)}:${n.line}  ${n.figures.join(", ")}`);
     }
     console.log("Every figure above must trace to the source document or a user-supplied fact.");

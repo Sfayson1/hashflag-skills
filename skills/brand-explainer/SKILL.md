@@ -21,6 +21,7 @@ Scripts are in `${CLAUDE_SKILL_DIR}/scripts/`; run them with `node`. Below, `S` 
   Use `npx --yes hyperframes@0.8.91` (the version this skill was tested against). Never send `hyperframes feedback`; it posts publicly.
 - **Keys bill whoever owns them.** The HeyGen engine reads `HEYGEN_API_KEY`, then a `.env` up to 5 folders up, then `~/.heygen/credentials`. If the video is for an organization other than the signed-in account's owner, confirm with the user which account pays, or force the offline voice (below).
 - **Length.** Default 60-90 s. Other skills pass their own `--min`/`--max`.
+- **Autonomous runs** (a caller like content-kit, or the user said not to stop): skip upstream's "confirm before `skills update`" and don't run `skills update`; skip `prefs.mjs record`; still show `auth status`; replace the Step 3 and Step 6 pauses with a one-line heads-up.
 
 ## What overrides what
 
@@ -40,7 +41,12 @@ Scripts are in `${CLAUDE_SKILL_DIR}/scripts/`; run them with `node`. Below, `S` 
 node "$S/stage.ts" --brand <pack> --project .
 ```
 
-This writes `frame.md` (generated from the pack, with explicit ink/canvas/accent roles and an @font-face block), `.hyperframes/caption-skin.html` (upstream's skin with the pack's casing; colors and fonts flow in from frame.md), the font files in `assets/fonts/`, and the logo in `public/`. It refuses to overwrite a hand-edited frame.md unless you pass `--force`. Relay any `note:` lines to the user.
+This writes:
+- `frame.md`, generated from the pack: explicit ink/canvas/accent roles, a video-scale type ramp at the weights that actually ship, every color pair that is legal for text, the CTA plate colors, and an @font-face block;
+- `.hyperframes/caption-skin.html`, upstream's skin with the pack's casing and heading weight (colors and fonts flow in from frame.md);
+- the font files in `assets/fonts/`, and the logo in `public/` when the pack has one.
+
+It fails if the pack has no font files (run `brand-pack`'s `fetch-fonts.ts` first) and refuses to overwrite a hand-edited frame.md unless you pass `--force`. Relay any `note:` lines to the user.
 
 ## Step 3: write within the pack, then gate
 
@@ -64,11 +70,14 @@ Show the user the `--numerals` list and say where each figure comes from in the 
 
 Pass `--voice` from the pack: `tts.heygen.voice` when HeyGen is signed in, `tts.kokoro.voice` offline. Say which voice you used.
 
-**Offline or other-org voice.** To force Kokoro even when a HeyGen credential exists, run the audio step with the credentials blanked:
+**Offline or other-org voice.** To force Kokoro even when a HeyGen credential exists, blank the credentials for **every** `audio.mjs` call, including `sync-durations` and `fetch-sfx`:
 
 ```sh
-HEYGEN_API_KEY= HYPERFRAMES_API_KEY= ELEVENLABS_API_KEY= HEYGEN_CONFIG_DIR="$(mktemp -d)" node <faceless-explainer>/scripts/audio.mjs …
+export HEYGEN_API_KEY= HYPERFRAMES_API_KEY= ELEVENLABS_API_KEY= HEYGEN_CONFIG_DIR="$(mktemp -d)"
+node <faceless-explainer>/scripts/audio.mjs …
 ```
+
+Confirm `audio_engine_meta.json` says `"tts_provider": "kokoro"`. With `music: none` and no `sfx:` cues, skip `fetch-sfx` and the catalog search.
 
 Use `music: none` in the storyboard unless the user has cleared the music's license; HeyGen's catalog music has no stated license.
 
@@ -80,9 +89,23 @@ node "$S/verify.ts" audio --script SCRIPT.md --meta audio_meta.json --min 60 --m
 
 A missing clip means re-run audio. A total outside the band means edit the script and re-run; don't build frames on a bad length.
 
+Kokoro and ElevenLabs have no native word timings, so captions are re-transcribed from the audio and can drift from the script ("sign and sheet" for "sign-in sheet"). After `captions.mjs build`:
+
+```sh
+node "$S/verify.ts" captions --script SCRIPT.md --meta audio_meta.json
+```
+
+Fix each reported word in `audio_meta.json` (`voices[].words[].text`; keep the timings), then rebuild captions. Number forms ("64" for "sixty-four") are fine.
+
 ## Steps 4-5
 
-Unchanged. Tell frame workers: only colors and fonts from frame.md, and text only in the contrast pairs it marks "text OK". After `assemble-index.mjs`, if the pack's `video.ground` isn't `canvas`:
+Unchanged, with three additions:
+
+- **Packets carry only the frame's own block**, so paste these into every worker's dispatch prompt: the `## Video direction` block from STORYBOARD.md; "only colors and fonts from frame.md, and text only in the color pairs it lists"; "chrome text never smaller than `label`"; and for the last frame, the CTA label from `brand.md` `ctas.primary.label`, the CTA plate colors from frame.md, and the logo path or "set the organization name in the heading font", held still for at least 2 seconds.
+- **Upstream refuses frame packets over 48,000 bytes.** A large blueprint (`kinetic-type-beats` is about 29 KB) plus two or three cited rules overflows it, and any rule id named in a frame block gets inlined. Cite at most one rule per frame that uses a large blueprint.
+- Take snapshots late in each frame, after its reveals settle, not at the midpoint.
+
+After `assemble-index.mjs`, if the pack's `video.ground` isn't `canvas`:
 
 ```sh
 node "$S/verify.ts" ground --brand <pack> --index index.html
@@ -98,7 +121,7 @@ Before preview:
 node "$S/check-copy.ts" --brand <pack> --project .
 ```
 
-This pass also covers built frames and burned-in captions. Then run upstream Step 6. Render to `renders/video.mp4` (pass `--output`), then:
+This pass also covers built frames and the burned-in caption words. Then run upstream Step 6. Render to `renders/video.mp4` (pass `--output`), then:
 
 ```sh
 node "$S/verify.ts" render --mp4 renders/video.mp4 --min 60 --max 90

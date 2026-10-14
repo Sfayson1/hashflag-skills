@@ -21,6 +21,21 @@ const chroma = (hex: string) => {
   const [r, g, b] = [1, 3, 5].map((i) => parseInt(hex.slice(i, i + 2), 16));
   return Math.max(r, g, b) - Math.min(r, g, b);
 };
+// The CTA plate: the accent if any pack color reads on it, else the first color that has a
+// readable partner. Returns undefined only when no pair in the pack reaches 4.5:1.
+export function ctaPlate(c: Record<string, string>) {
+  const order = ["accent", "accent2", ...Object.keys(c).filter((k) => !["accent", "accent2", "ink", "canvas"].includes(k)), "ink", "canvas"].filter((k) => k in c);
+  for (const fill of order) {
+    const text = Object.keys(c).filter((k) => k !== fill).sort((a, b) => contrast(c[b], c[fill]) - contrast(c[a], c[fill]))[0];
+    if (text && contrast(c[text], c[fill]) >= 4.5) return { fill, text };
+  }
+}
+
+// Every ordered pair of pack colors that passes WCAG AA for text.
+export function textPairs(c: Record<string, string>) {
+  return Object.keys(c).flatMap((fg) => Object.keys(c).filter((bg) => bg !== fg && contrast(c[fg], c[bg]) >= 4.5).map((bg) => ({ fg, bg, ratio: contrast(c[fg], c[bg]) })));
+}
+
 const rgba = (hex: string, a: number) => `rgba(${[1, 3, 5].map((i) => parseInt(hex.slice(i, i + 2), 16)).join(",")},${a})`;
 
 export function frameMd(brand: Brand): string {
@@ -31,12 +46,14 @@ export function frameMd(brand: Brand): string {
   const mono = fonts.mono ?? body;
   if (!heading || !body) throw new Error("The brand pack needs fonts.heading and fonts.body to make a video.");
   const files = (f?: { files?: string[] }) => f?.files ?? [];
-  const top = Math.max(...files(heading).map(weightOf), 700);
+  // The heaviest weight that ships; asking for more makes the browser fake a bold.
+  const top = files(heading).length ? Math.max(...files(heading).map(weightOf)) : 700;
   const upper = brand.video?.caption_case === "upper";
   const accent = c.accent ?? c.ink;
   const accent2 = c.accent2 ?? accent;
   const ground = c[brand.video?.ground ?? "canvas"];
-  const legal = (fg: string, bg: string) => (contrast(c[fg] ?? fg, c[bg] ?? bg) >= 4.5 ? "text OK" : "NOT for text; marks, rules and fills only");
+  const pairs = textPairs(c);
+  const plate = ctaPlate(c);
   const extra = Object.entries(c).filter(([k]) => !["ink", "canvas", "accent", "accent2"].includes(k));
   const faces = Object.values(fonts)
     .flatMap((f) => files(f).map((p) => ({ family: f.family, file: basename(p), weight: weightOf(p), ext: extname(p).slice(1) })))
@@ -64,10 +81,10 @@ colors:
   canvas-hairline: "${rgba(c.canvas, 0.16)}"
 
 typography:
-  body:    ${t(body.family, 1.25, 400, ", lineHeight: 1.6")}
-  lead:    ${t(body.family, 1.7, 400, ", lineHeight: 1.5")}
-  caption: ${t(body.family, 0.95, 400, ", lineHeight: 1.5")}
-  label:   ${t(mono.family, 0.7, 400, ', tracking: "0.1em", upper: true')}
+  body:    ${t(body.family, 1.6, 400, ", lineHeight: 1.5")}
+  lead:    ${t(body.family, 2.1, 400, ", lineHeight: 1.4")}
+  caption: ${t(body.family, 1.35, 400, ", lineHeight: 1.4")}
+  label:   ${t(mono.family, 1.25, 400, ', tracking: "0.08em", upper: true')}
   h3:      ${t(heading.family, 2.6, top, `, lineHeight: 1.25${up}`)}
   h2:      ${t(heading.family, 4.2, top, `, lineHeight: 1.1, tracking: "-0.01em"${up}`)}
   stat-value: ${t(heading.family, 5.5, top, ', lineHeight: 1.0, tracking: "-0.02em"')}
@@ -101,7 +118,7 @@ components:
     typography: "{typography.lead}"
     description: "Capped at three items."
   cta-plate:
-    fill: "{colors.accent} plate, text in whichever of ink or canvas passes 4.5:1 on it"
+    fill: "${plate ? `{colors.${plate.fill}} plate, text {colors.${plate.text}}` : "no pack color pair reaches 4.5:1; set the CTA as large heading text instead of a plate"}"
     description: "The literal action word only."
   end-card:
     ground: "{colors.${brand.video?.ground ?? "canvas"}}"
@@ -120,15 +137,14 @@ ${brand.mission ? `${brand.mission}\n\n` : ""}A flat, typographic system. **${he
 | --- | --- | --- |
 | ink | ${c.ink} | Text on light ground; dark-register ground |
 | canvas | ${c.canvas} | Light ground; text on dark register |
-| accent | ${accent} | Rules, highlights, the CTA plate, one key word per frame |
-| accent2 | ${accent2} | Secondary highlight; use sparingly |
-${extra.map(([k, v]) => `| ${k} | ${v} | Supporting color from the brand pack; no text |`).join("\n")}
+| accent | ${accent} | Rules, highlights, one key word per frame |
+| accent2 | ${accent2} | Second brand color; see brand.md for its role |
+${extra.map(([k, v]) => `| ${k} | ${v} | Supporting color from the brand pack |`).join("\n")}
 
-Contrast (WCAG, 4.5:1 for text):
-- ink on canvas: ${contrast(c.ink, c.canvas).toFixed(2)}:1, ${legal("ink", "canvas")}.
-- accent on canvas: ${contrast(accent, c.canvas).toFixed(2)}:1, ${legal(accent, "canvas")}.
-- accent on ink: ${contrast(accent, c.ink).toFixed(2)}:1, ${legal(accent, "ink")}.
-- accent2 on canvas: ${contrast(accent2, c.canvas).toFixed(2)}:1, ${legal(accent2, "canvas")}.
+Text may only use these color pairs (WCAG AA, 4.5:1 or better). Any other pair is for marks, rules and fills only:
+${pairs.map((p) => `- ${p.fg} on ${p.bg}: ${p.ratio.toFixed(2)}:1`).join("\n")}
+
+CTA plate: ${plate ? `${plate.fill} fill with ${plate.text} text (${contrast(c[plate.text], c[plate.fill]).toFixed(2)}:1).` : "no pair reaches 4.5:1, so set the call to action as large heading text."}
 
 Accent colors cover at most about 10% of any frame. No gradients, no shadows, radius 0 unless the brand says otherwise.
 
@@ -141,7 +157,9 @@ The video opens on the hook and always closes on the end card.
 ## Pre-render self-audit
 
 - One display moment per frame; nothing competes with it.
-- Only colors from this file. Text only in pairs marked "text OK" above.
+- Only colors from this file. Text only in the pairs listed under Color.
+- Chrome text (labels, kickers, source tags) is never smaller than {typography.label}.
+- The end card is fully on screen and still for at least 2 seconds before the video ends.
 - Only the families below, from shipped files.
 - Bullets capped at three.
 - Every number on screen comes from the script. No invented figures.
@@ -160,6 +178,8 @@ ${faces.map((f) => `@font-face { font-family: "${f.family}"; src: url("assets/fo
 export function stage(brandPath: string, project: string, skillsDir: string, force = false): string[] {
   const { brand, dir } = loadBrand(brandPath);
   const notes: string[] = [];
+  const heading = brand.fonts?.heading ?? brand.fonts?.display ?? brand.fonts?.body;
+  if (!heading?.files?.length) throw new Error("The pack lists no font files for its heading font. Run brand-pack's fetch-fonts.ts first, or frames fall back to system fonts.");
   const write = (path: string, text: string) => {
     if (existsSync(path) && !force && readFileSync(path, "utf8") !== text) throw new Error(`${path} exists and differs. Re-run with --force to overwrite it.`);
     writeFileSync(path, text);
@@ -172,15 +192,19 @@ export function stage(brandPath: string, project: string, skillsDir: string, for
   if (!existsSync(skin)) throw new Error(`Caption skin not found at ${skin}. Install HyperFrames skills (npx hyperframes skills update) or pass --skills-dir.`);
   // The skin takes colors and fonts from frame.md at caption build time; only casing is set here.
   const casing = brand.video?.caption_case === "upper" ? "uppercase" : brand.video?.caption_case === "lower" ? "lowercase" : "none";
-  write(join(project, ".hyperframes/caption-skin.html"), readFileSync(skin, "utf8").replace(/text-transform: lowercase;/, `text-transform: ${casing};`));
+  const weight = Math.max(...heading.files.map(weightOf));
+  write(
+    join(project, ".hyperframes/caption-skin.html"),
+    readFileSync(skin, "utf8").replace(/text-transform: lowercase;/, `text-transform: ${casing};`).replace(/font-weight: 900;/, `font-weight: ${weight};`),
+  );
 
   for (const f of Object.values(brand.fonts ?? {}))
     for (const p of f.files ?? []) copyFileSync(join(dir, p), join(project, "assets/fonts", basename(p)));
-  if (!Object.values(brand.fonts ?? {}).some((f) => f.files?.length)) notes.push("The pack lists no font files. Run brand-pack's fetch-fonts.ts first, or frames will fall back to system fonts.");
   if (brand.logo) {
     mkdirSync(join(project, "public"), { recursive: true });
     copyFileSync(join(dir, brand.logo), join(project, "public", basename(brand.logo)));
-  }
+  } else notes.push("The pack has no logo, so the end card sets the organization name in the heading font.");
+  if (!ctaPlate(brand.colors)) notes.push("No color pair in the pack reaches 4.5:1, so there is no readable CTA plate. Fix the palette with brand-pack.");
   if (brand.colors.accent2 && brand.colors.accent && chroma(brand.colors.accent2) > chroma(brand.colors.accent))
     notes.push("accent2 is more saturated than accent, so captions will highlight in accent2. Swap them in brand.md if that's wrong.");
   if ((brand.video?.ground ?? "canvas") !== "canvas") notes.push(`After assembly, run: node verify.ts ground --brand <pack> --index index.html`);
