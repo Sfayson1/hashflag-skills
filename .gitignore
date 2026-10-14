@@ -1,0 +1,8 @@
+node_modules/
+.env*
+brand/
+videos/
+renders/
+out/
+brag-output*/
+.hyperframes/

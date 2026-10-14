@@ -1,0 +1,9 @@
+{
+  "name": "hashflag",
+  "version": "0.1.0",
+  "description": "Content engine skills from Vets Who Code: turn one piece of writing into images, audio and video in your own brand.",
+  "author": { "name": "Vets Who Code", "url": "https://github.com/Vets-Who-Code" },
+  "homepage": "https://github.com/Vets-Who-Code/hashflag-skills",
+  "repository": "https://github.com/Vets-Who-Code/hashflag-skills",
+  "license": "Apache-2.0"
+}
