@@ -16,6 +16,8 @@ Step 1 of the resume workflow: **ground the data, then edit.** This skill measur
 
 If the role is missing, ask one question for it. Nothing else is required.
 
+**A resume is personal data.** Write `onet.json`, `resume.json` and `report.json` to `~/.cache/hashflag/resume-market-scorer/<role-slug>/`, never inside a git repo, and never upload the resume anywhere.
+
 ## Workflow
 
 ### 1. Map role → O*NET occupation
@@ -78,14 +80,17 @@ Grade core skills (Programming, Systems Analysis, etc.) from what bullets demons
 ### 5. Score
 
 ```bash
-python scripts/score.py onet.json resume.json --out report.json
+python3 "${CLAUDE_SKILL_DIR}/scripts/score.py" onet.json resume.json --out report.json
 ```
+
+It exits with a clear error if `onet_code` is missing or a strength isn't one of the five values above.
 
 Scoring (fixed — don't change per person):
 - **Technology Skills (70%)** — weight: Hot + In Demand = 3, Hot or In Demand = 2, neither = 1.
 - **Core Skills/Knowledge (30%)** — weight = O*NET importance. Only items with importance ≥ 50 count.
 - **Score** = weighted evidence coverage, 0–100.
 - **BLS** is reported as lane outlook; it does not change the resume score.
+- Each item gets an **impact**: the points the score would gain if it were proven. Gaps and unproven claims are ranked by impact, so the top gap is the one that costs the most.
 
 ### 6. Report
 
@@ -97,7 +102,7 @@ Lane outlook (BLS): [growth]% growth (10-yr), median pay $[X], [N] openings/yr.
 Subscores: Tech [XX] · Core [XX]
 
 Top gaps
-1. [Skill] — [Hot Tech / In Demand], resume: [strength]  (max 5)
+1. [Skill] — [Hot Tech / In Demand], resume: [strength], +[impact] pts if proven  (max 5)
 
 Unproven claims (listed only — move into a bullet with a result)
 1. [Skill] — [flags]  (max 5)
@@ -107,6 +112,8 @@ Strengths
 
 Dead weight (on resume, not in O*NET for this occupation)
 - [Skill], [Skill]
+
+Listed in O*NET but below the importance cutoff (not scored): [Skill], [Skill]
 
 Sources: [O*NET link] · [BLS link]
 ```
