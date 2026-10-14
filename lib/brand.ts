@@ -23,7 +23,7 @@ export type Brand = {
 };
 
 export function parseFrontMatter(text: string): { data: Record<string, any>; body: string; raw: string } {
-  const m = text.match(/^﻿?---\r?\n([\s\S]*?)\r?\n---\r?\n?/);
+  const m = text.match(/^\uFEFF?---\r?\n([\s\S]*?)\r?\n---\r?\n?/);
   if (!m) return { data: {}, body: text, raw: "" };
   return { data: parse(m[1]) ?? {}, body: text.slice(m[0].length), raw: m[1] };
 }
