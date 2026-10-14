@@ -141,7 +141,7 @@ export async function upload(results: Result[], slug: string, storageName: strin
 // Sets keys only inside YAML front matter, editing just those nodes. An existing alt is kept.
 export function writeFrontMatter(file: string, values: Record<string, string | undefined>, keys: Record<string, string>) {
   const text = readFileSync(file, "utf8");
-  const m = text.match(/^(﻿?---\r?\n)([\s\S]*?\r?\n)(---)/);
+  const m = text.match(/^(\uFEFF?---\r?\n)([\s\S]*?\r?\n)(---)/);
   if (!m) throw new Error(`${file} has no YAML front matter; copy the snippet above by hand.`);
   const doc = parseDocument(m[2]);
   for (const [name, value] of Object.entries(values)) {
