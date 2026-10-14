@@ -70,8 +70,10 @@ Grade **every** checklist item in `resume.json`. One entry per item; also add an
 
 ### 4. Score
 
+Save the resume as plain text in `~/resume-scores/<person>/resume.txt`, then:
+
 ```bash
-python3 "$S/score.py" onet.json resume.json --out report.json
+python3 "$S/score.py" onet.json resume.json --text resume.txt --out report.json
 ```
 
 The formula is fixed; it never changes per person:
@@ -81,6 +83,7 @@ The formula is fixed; it never changes per person:
 - **BLS** is the lane outlook only. It never changes the score.
 - **Bands:** 80+ Strong · 65–79 Competitive · 50–64 Gaps · under 50 Mismatch. The bands are **uncalibrated** until 3–5 real resumes have been run; say so in every report.
 - Each item's `impact` is the points the score gains if it were proven. Gaps rank by impact.
+- **ATS wording is a separate check; it never changes the score.** The score asks "does this person have the skill?" `onet_name` mappings answer that, but no ATS can be trusted to make the same mapping ("GCP" for "Google Cloud", "JS" for "JavaScript"). So for every scored tool the person has, `--text` checks that the resume text literally carries each standard form (full name and abbreviation) and prints the exact wording to add.
 
 ### 5. Report
 
@@ -100,13 +103,16 @@ Unproven claims (listed only; move into a bullet with a result) (max 5)
 Strengths (max 5)
 1. [Skill] — [flags]
 
+ATS wording: [N] of [M] tools written in every standard form
+1. [Skill] — missing [form]; write "[fix]"
+
 Not scored for this occupation
 - [Skill] — [alternate stack | not yet in O*NET | dead weight]
 
 Sources: [every URL from onet.json "sources"]
 ```
 
-A report without the O*NET code and title, the pull date, BLS growth, pay and openings with the period, both subscores, and the source links is invalid.
+A report without the O*NET code and title, the pull date, BLS growth, pay and openings with the period, both subscores, the ATS wording check, and the source links is invalid. ATS fixes are always "resume-fixable".
 
 ## Labels
 

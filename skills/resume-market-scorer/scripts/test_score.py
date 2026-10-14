@@ -78,6 +78,23 @@ assert next(x for x in gcp["all"] if x["skill"] == "Java or C#")["via"] == "C#"
 assert score(stacks, {"skills": [ev("C#"), ev("Amazon Web Services AWS software"), ev("JavaScript"), ev("Python", "none")]})["top_gaps"][0]["skill"] == "Python"
 
 
+# ATS wording: a separate check that never changes the score
+gcp_resume = {"skills": [ev("C#"), {"skill": "GCP", "onet_name": "Google Cloud software", "strength": "proven", "evidence": "x"},
+                         ev("JavaScript"), ev("Python")]}
+plain = score(stacks, gcp_resume)
+gcp_only = score(stacks, gcp_resume, "Deployed services on GCP. Built APIs in C# and JavaScript with Python tooling.")
+assert gcp_only["score"] == plain["score"] and plain["ats"] is None
+fix = {f["skill"]: f for f in gcp_only["ats"]["fixes"]}
+assert list(fix) == ["Google Cloud software"] and fix["Google Cloud software"]["missing"] == ["Google Cloud"]
+assert fix["Google Cloud software"]["write"] == "Google Cloud (GCP)"
+both = score(stacks, gcp_resume, "Deployed services on Google Cloud Platform (GCP). Built APIs in C# and JavaScript with Python.")
+assert both["ats"] == {"checked": 4, "ready": 4, "fixes": []}, both["ats"]
+# "JavaScript" is not "Java", and "C" is not "C#" or "C++"
+java = score(stacks, {"skills": [ev("Oracle Java"), ev("Amazon Web Services AWS software"), ev("JavaScript"), ev("Python")]},
+             "JavaScript and Python on Amazon Web Services (AWS). Some C.")
+assert [f["skill"] for f in java["ats"]["fixes"]] == ["Oracle Java"], java["ats"]
+
+
 def run(o, resume_dir):
     with tempfile.TemporaryDirectory() as t:
         op = os.path.join(t, "onet.json"); json.dump(o, open(op, "w"))

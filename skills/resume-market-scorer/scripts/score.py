@@ -7,7 +7,7 @@
 onet.json must come from fetch_market.py and be under 30 days old. The resume and the
 report must live outside any git repo. The formula is fixed; it never changes per person.
 """
-import argparse, json, os, sys
+import argparse, json, os, re, sys
 from datetime import datetime, timezone
 
 STRENGTH = {"proven": 1.0, "applied": 0.7, "listed": 0.4, "stale": 0.3, "none": 0.0}
@@ -29,6 +29,35 @@ STACKS = {
     "JavaScript or TypeScript": ["JavaScript", "TypeScript"],  # TypeScript is a JavaScript superset
 }
 SLOT_OF = {m: slot for slot, ms in STACKS.items() for m in ms}
+
+# ATS wording. Don't assume an ATS maps "GCP" to "Google Cloud": a skill is ATS-safe only
+# when the resume text carries every standard form below (full name and abbreviation).
+# Tools not listed need their O*NET name as written. Case-insensitive, whole words.
+ATS_FORMS = {
+    "Amazon Web Services AWS software": ["Amazon Web Services", "AWS"],
+    "Microsoft Azure software": ["Azure"],
+    "Google Cloud software": ["Google Cloud", "GCP"],
+    "Structured query language SQL": ["SQL"],
+    "Oracle Java": ["Java"],
+    "Google Angular": ["Angular"],
+    "Vue.js": ["Vue"],
+    "Cascading style sheets CSS": ["CSS"],
+    "Hypertext markup language HTML": ["HTML"],
+    "Microsoft .NET Framework": [".NET"],
+}
+
+
+def ats_check(rows, text):
+    """For each scored tool the person has, which standard forms the resume text is missing."""
+    out = []
+    for x in rows:
+        if x["section"] != "tech" or x["strength"] == "none":
+            continue
+        forms = ATS_FORMS.get(x["via_onet"], [x["via_onet"]])
+        missing = [f for f in forms if not re.search(r"(?<![\w.#+])" + re.escape(f) + r"(?![\w#+])", text, re.I)]
+        out.append({"skill": x["via_onet"], "forms": forms, "missing": missing,
+                    "write": f"{forms[0]} ({forms[1]})" if len(forms) == 2 else forms[0]})
+    return {"checked": len(out), "ready": sum(1 for a in out if not a["missing"]), "fixes": [a for a in out if a["missing"]]}
 
 
 def refuse(msg):
@@ -87,7 +116,7 @@ def checklist(o):
     return items
 
 
-def score(o, r):
+def score(o, r, text=None):
     items = checklist(o)
     known = {norm(t["skill"]): t["skill"] for t in o.get("tech_skills", []) + o.get("core_skills", [])}
     known.update({norm(m): m for m in SLOT_OF})
@@ -119,7 +148,8 @@ def score(o, r):
             st = best["strength"]
             got += w * STRENGTH[st]
             value = 100 * share * w / tw if tw else 0.0  # points this item is worth when proven
-            rows.append({"section": section, "skill": name, "weight": round(w, 2), "flags": label, "strength": st,
+            via = known.get(norm(best.get("onet_name") or best["skill"]), name)
+            rows.append({"section": section, "skill": name, "via_onet": via, "weight": round(w, 2), "flags": label, "strength": st,
                          "evidence": best.get("evidence", ""), "via": best.get("onet_name") or best["skill"], "value": round(value, 2),
                          "impact": round(value * (1 - STRENGTH[st]), 2)})  # points gained if proven; gaps rank by it
         sub[section] = 100 * got / tw if tw else 0.0
@@ -137,6 +167,7 @@ def score(o, r):
         "strengths": sorted([x for x in rows if x["strength"] == "proven"], key=lambda x: -x["value"])[:5],
         "in_onet_not_scored": sorted(n for n in ev if n not in scored),
         "unmatched": sorted(unmatched),  # Claude labels each: alternate stack, not yet in O*NET, or dead weight
+        "ats": ats_check(rows, text) if text is not None else None,
         "all": ranked,
     }
 
@@ -145,6 +176,7 @@ def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("onet"); ap.add_argument("resume", nargs="?"); ap.add_argument("--out")
     ap.add_argument("--checklist", action="store_true")
+    ap.add_argument("--text", help="the resume as plain text, for the ATS wording check")
     a = ap.parse_args()
     o = json.load(open(a.onet))
     check_onet(o)
@@ -157,13 +189,13 @@ def main():
         return
     if not a.resume:
         ap.error("give resume.json, or --checklist")
-    for path in [a.resume] + ([a.out] if a.out else []):
+    for path in [a.resume] + [p for p in (a.out, a.text) if p]:
         repo = in_git_repo(path)
         if repo:
             refuse(f"{path} is inside the git repo {repo}. Resumes are personal data: move working files to ~/resume-scores/<person>/.")
 
     try:
-        rep = score(o, json.load(open(a.resume)))
+        rep = score(o, json.load(open(a.resume)), open(a.text).read() if a.text else None)
     except (ValueError, KeyError) as e:
         sys.exit(f"error: {e}")
     if a.out:
@@ -178,6 +210,13 @@ def main():
         print(f"  GAP   {x['skill']:<34} {x['flags']:<30} resume: {x['strength']:<6} +{x['impact']} pts if proven")
     for x in rep["unproven_claims"]:
         print(f"  PROVE {x['skill']:<34} {x['flags']:<30} resume: listed +{x['impact']} pts if proven")
+    ats = rep["ats"]
+    if ats is None:
+        print("  ATS wording: not checked (pass --text resume.txt)")
+    else:
+        print(f"  ATS wording: {ats['ready']} of {ats['checked']} tools written in every standard form")
+        for f in ats["fixes"]:
+            print(f"  ATS   {f['skill']:<34} missing {', '.join(repr(m) for m in f['missing'])}; write {f['write']!r}")
     if rep["unmatched"]:
         print(f"  Not scored for this occupation (label each): {', '.join(rep['unmatched'])}")
 
