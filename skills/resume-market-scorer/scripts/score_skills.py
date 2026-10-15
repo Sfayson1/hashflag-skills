@@ -100,6 +100,8 @@ def score(p, resume, vocab, text=None, onet=None):
             raise ValueError(f"{name}: strength {st!r} is not one of {', '.join(STRENGTH)}")
         if st != "none" and not (e.get("evidence") or "").strip():
             raise ValueError(f"{name}: {st} with no evidence quote. No quote means none.")
+        if st == "proven" and not re.search(r"[\d%$]", e["evidence"]):
+            raise ValueError(f"{name}: proven needs a result with a number, % or $ in the evidence quote. Quote the result, or grade it applied.")
         if text is not None and st != "none" and not quoted(e["evidence"], text):
             raise ValueError(f"{name}: evidence is not on the resume: {e['evidence']!r}")
         graded[canon.get(name.lower(), name)] = e

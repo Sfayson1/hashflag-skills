@@ -34,7 +34,7 @@ Scripts are in `${CLAUDE_SKILL_DIR}/scripts/` (call it `S`). Run them with `pyth
 
    | Strength | Meaning | Value |
    |---|---|---|
-   | `proven` | Experience bullet with a result or metric | 1.0 |
+   | `proven` | Experience bullet with a result or metric; the quote must carry a number, % or $ | 1.0 |
    | `applied` | Experience bullet, no result | 0.7 |
    | `listed` | Skills section or summary only | 0.4 |
    | `stale` | Only in roles 5+ years old | 0.3 |

@@ -1,7 +1,7 @@
 # Run: python3 test_skills.py   (synthetic data only; never put a real resume here)
 import json, os, subprocess, sys, tempfile
 from datetime import datetime, timedelta, timezone
-from fetch_postings import REF, build, cap, digest, split, term_re
+from fetch_postings import REF, build, cap, digest, matchers, split, term_re
 from score_skills import W_ONET, W_POSTINGS, checklist, composite, market_onet, pool_band, score
 import score as onet_scorer
 
@@ -13,6 +13,8 @@ now = datetime.now(timezone.utc)
 assert not term_re("Java").search("JavaScript") and term_re("Java").search("Java/Kotlin")
 assert not term_re("SQL").search("PostgreSQL") and term_re("C++").search("C++ and Rust")
 assert term_re("Go", True).search("Go or Rust") and not term_re("Go", True).search("go to market")
+agents = next(rxs for v, rxs in matchers(vocab) if v["skill"] == "AI agents")
+assert any(r.search("build AI agents") for r in agents) and not any(r.search("customer support agents") for r in agents)
 
 # required vs preferred split, boilerplate skipped (VWC heuristic)
 req, pref = split("<h3>Requirements</h3><ul><li>Python</li></ul><p><strong>Nice to have:</strong></p><ul><li>Kafka</li></ul>"
@@ -44,7 +46,7 @@ assert cap([{"company": "a", "_date": None}] * 3, 0.15) == [{"company": "a", "_d
 
 # scoring
 names = [s["skill"] for s in checklist(p)]
-ev = lambda st, q="Built it": {"strength": st, "evidence": "" if st == "none" else q}
+ev = lambda st, q="Built it, cut load 40%": {"strength": st, "evidence": "" if st == "none" else q}
 grade = lambda g: {"skills": [{"skill": n} | ev(g.get(n, "none")) for n in names]}
 assert score(p, grade({n: "proven" for n in names}), vocab)["score"] == 100
 assert score(p, grade({}), vocab)["score"] == 0
@@ -68,11 +70,13 @@ assert c["cut"] == [{"skill": "PHP", "pct": 1.0}] and c["not_in_vocab"] == ["Cob
 
 # grading rules
 for bad, msg in [({"skills": []}, "Missing:"), ({"skills": [{"skill": "Python", "strength": "proven", "evidence": ""}]}, "no evidence"),
-                 ({"skills": [{"skill": "Python", "strength": "expert", "evidence": "x"}]}, "expert")]:
+                 ({"skills": [{"skill": "Python", "strength": "expert", "evidence": "x"}]}, "expert"),
+                 ({"skills": [{"skill": "Python", "strength": "proven", "evidence": "built the pipeline"}]}, "needs a result")]:
     try:
         score(p, bad, vocab); raise AssertionError(msg)
     except ValueError as e:
         assert msg in str(e), e
+score(p, {"skills": grade({})["skills"][1:] + [{"skill": "Python", "strength": "applied", "evidence": "built the pipeline"}]}, vocab)  # no number needed
 try:
     score(p, grade({"Python": "proven"}), vocab, "A resume that never says it."); raise AssertionError("quote")
 except ValueError as e:
@@ -86,7 +90,7 @@ onet = {"fetched_by": "fetch_market.py", "fetched_at": now.isoformat(), "role": 
         "core_skills": [{"skill": "Programming", "importance": 75, "type": "transferable"}]}
 both = {"skills": grade({"Python": "listed", "LangGraph": "proven"})["skills"]
         + [{"skill": "AWS", "onet_name": "Amazon Web Services AWS software", "strength": "none", "evidence": ""},
-           {"skill": "Programming", "strength": "proven", "evidence": "Built it"}]}
+           {"skill": "Programming", "strength": "proven", "evidence": "Built it, cut load 40%"}]}
 pr, orp = score(p, both, vocab), onet_scorer.score(onet, both)
 cr = composite(pr, orp, both, vocab)
 assert cr["score"] == round(W_POSTINGS * pr["score"] + W_ONET * orp["score"], 1)
