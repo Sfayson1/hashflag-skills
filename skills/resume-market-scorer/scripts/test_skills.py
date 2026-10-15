@@ -1,6 +1,7 @@
 # Run: python3 test_skills.py   (synthetic data only; never put a real resume here)
 import json, os, subprocess, sys, tempfile
 from datetime import datetime, timedelta, timezone
+import fetch_postings
 from fetch_postings import REF, build, cap, digest, matchers, split, term_re
 from score_skills import W_ONET, W_POSTINGS, checklist, composite, market_onet, pool_band, score
 import score as onet_scorer
@@ -45,6 +46,8 @@ assert by["LangGraph"]["required_pct"] > 0 and by["RAG"]["preferred_pct"] > 0 an
 assert by["OpenAI API"]["postings"] == sum(1 for x in p["postings"] if x["company"] == "big")  # openai's own posting not counted
 assert p["confidence"] == "OK" and p["digest"] == digest(p)
 assert cap([{"company": "a", "_date": None}] * 3, 0.15) == [{"company": "a", "_date": None}]  # one company: cap 1
+fetch_postings.board = lambda name, co: []  # a 200 with no jobs is reported, not silently counted as a live source
+assert fetch_postings.fetch_one("lever", "y") == ("lever", "y", [], "no jobs (dead slug?)")
 
 # scoring
 names = [m for s in checklist(p) for m in s["members"]]

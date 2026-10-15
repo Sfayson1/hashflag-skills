@@ -5,8 +5,10 @@
 - Lever: https://api.lever.co/v0/postings/<company>?mode=json
 - Ashby: https://api.ashbyhq.com/posting-api/job-board/<company>
 
-Companies are in `companies.json`, verified live on the date in its `_note`. When a source fails, check the
-slug at the endpoint above and drop or fix it.
+Companies are in `companies.json`, verified live on the date in its `_note`. A source that fails or returns no
+jobs is reported as `SOURCE FAILED`. Before a release run `python3 scripts/verify_companies.py` and drop every
+slug it marks DROP. Each board gives one date per job (Greenhouse `first_published`, Lever `createdAt`, Ashby
+`publishedAt`; none exposes an update date), and postings older than 60 days are left out.
 
 **Bias:** Workday hosts many large-employer and government postings and has no keyless API, so they're absent.
 The sample leans tech and startup. Every report says so.

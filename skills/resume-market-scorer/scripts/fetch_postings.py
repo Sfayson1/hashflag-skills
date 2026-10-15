@@ -46,8 +46,13 @@ BOARDS = {
 
 def get(url):
     req = urllib.request.Request(url, headers={"User-Agent": "resume-market-scorer/2.0"})
-    with urllib.request.urlopen(req, timeout=60) as r:
-        return json.load(r)
+    for attempt in (1, 2):  # ponytail: one retry on any failure
+        try:
+            with urllib.request.urlopen(req, timeout=60) as r:
+                return json.load(r)
+        except Exception:
+            if attempt == 2:
+                raise
 
 
 def term_re(term, cased=False):
@@ -110,19 +115,19 @@ def board(name, co):
                  html=j.get("descriptionHtml", "")) for j in data["jobs"] if j.get("isListed", True)]
 
 
+def fetch_one(b, c):
+    """(board, company, postings, error). A 200 with no jobs is an error too, so dead slugs get noticed."""
+    try:
+        ps = board(b, c)
+    except Exception as e:
+        return b, c, [], f"{type(e).__name__}: {e}"
+    return b, c, [p | {"company": c, "board": b} for p in ps], None if ps else "no jobs (dead slug?)"
+
+
 def fetch_all():
     cos = json.load(open(os.path.join(REF, "companies.json")))
-    jobs = [(b, c) for b in BOARDS for c in cos[b]]
-
-    def one(bc):
-        b, c = bc
-        try:
-            return b, c, [p | {"company": c, "board": b} for p in board(b, c)], None
-        except Exception as e:
-            return b, c, [], f"{type(e).__name__}: {e}"
-
     with ThreadPoolExecutor(16) as ex:
-        return list(ex.map(one, jobs))
+        return list(ex.map(lambda bc: fetch_one(*bc), [(b, c) for b in BOARDS for c in cos[b]]))
 
 
 def cap(posts, share):
