@@ -16,6 +16,19 @@ TECH_TOP = 15
 IN_DEMAND_BOOST = 1.25
 CORE_MIN_IMPORTANCE = 50
 CORE_TYPES = ("transferable", "knowledge")  # essential skills (reading, listening) aren't evidenced by resumes
+# VWC definition: core items no engineering resume bullet can credibly evidence or act on. Everything else that
+# O*NET lists at importance 50+ (Programming, Systems Analysis, Mathematics, Computers and Electronics...) stays.
+CORE_EXCLUDE = {
+    "English Language": "every resume is written in it",
+    "Time Management": "no bullet evidences it",
+    "Coordination": "no bullet evidences it",
+    "Judgment and Decision Making": "no bullet evidences it",
+    "Service Orientation": "soft skill, not a resume line",
+    "Social Perceptiveness": "soft skill, not a resume line",
+    "Customer and Personal Service": "support knowledge, not engineering",
+    "Design": "O*NET means blueprints and drawings",
+    "Engineering and Technology": "too broad to act on",
+}
 MAX_AGE_DAYS = 30
 BANDS_CALIBRATED = False  # flip after 3-5 real resumes have been scored and reviewed
 
@@ -131,7 +144,8 @@ def checklist(o):
         elif slot not in slots:  # tech is sorted, so the first member seen carries the highest weight
             slots[slot] = len(items)
             items.append(("tech", slot, w, f"any of: {', '.join(STACKS[slot])}; top member {label}", STACKS[slot]))
-    core = [c for c in o.get("core_skills", []) if c["type"] in CORE_TYPES and c["importance"] >= CORE_MIN_IMPORTANCE]
+    core = [c for c in o.get("core_skills", []) if c["type"] in CORE_TYPES and c["importance"] >= CORE_MIN_IMPORTANCE
+            and c["skill"] not in CORE_EXCLUDE]
     items += [("core", c["skill"], c["importance"], f"{c['type']}, importance {c['importance']:g}", [c["skill"]]) for c in core]
     return items
 

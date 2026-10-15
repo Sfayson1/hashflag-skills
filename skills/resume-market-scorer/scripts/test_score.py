@@ -11,6 +11,8 @@ core = [
     {"skill": "Computers and Electronics", "importance": 94, "type": "knowledge"},
     {"skill": "Critical Thinking", "importance": 72, "type": "essential"},
     {"skill": "Mathematics", "importance": 55, "type": "knowledge"},
+    {"skill": "Time Management", "importance": 53, "type": "transferable"},
+    {"skill": "English Language", "importance": 57, "type": "knowledge"},
 ]
 onet = {"fetched_by": "fetch_market.py", "fetched_at": now, "role": "SWE", "onet_code": "15-1252.00",
         "onet_title": "Software Developers", "bls": {"period": "2024-2034", "growth_pct": 15}, "tech_skills": tech, "core_skills": core}
@@ -25,7 +27,7 @@ def graded(strengths, extra=()):
 # checklist: top 15 tools by posting share; essential skills excluded
 items = checklist(onet)
 assert [n for s, n, *_ in items if s == "tech"] == [f"Tool{i}" for i in range(15)]
-assert "Critical Thinking" not in [n for _, n, *_ in items]
+assert not {"Critical Thinking", "Time Management", "English Language"} & {n for _, n, *_ in items}  # essential and non-actionable
 assert dict((n, w) for _, n, w, *_ in items)["Tool0"] == 30 * 1.25  # In Demand boost
 
 # perfect evidence scores 100; nothing scores 0
