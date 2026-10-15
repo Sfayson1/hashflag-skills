@@ -31,7 +31,7 @@ def post(co, title, body, days=1):
 
 
 AI = "<h3>Requirements</h3><ul><li>Python, LangChain, LangGraph</li><li>Docker</li></ul><h3>Preferred</h3><ul><li>Rust, RAG</li></ul>"
-posts = [post(f"co{i}", "AI Engineer", AI) for i in range(30)]
+posts = [post(f"co{i}", "AI Engineer", AI) for i in range(50)]
 posts += [post("big", f"AI Engineer {i}", "<p>Python, OpenAI</p>") for i in range(40)]           # one company floods
 posts += [post("pedco", "AI Engineer", "<p>Python. Experience at FAANG or big tech preferred. Ex-Microsoft welcome.</p>"),
           post("openai", "Applied AI Engineer", "<p>OpenAI API and Python</p>"),                  # vendor's own name
@@ -40,12 +40,33 @@ posts += [post("pedco", "AI Engineer", "<p>Python. Experience at FAANG or big te
           post("co3", "AI Engineer II", AI, days=90), post("co4", "Account Executive", AI)]         # too old, wrong lane
 p = build("ai", [("greenhouse", "x", posts, None), ("lever", "y", [], "HTTPError: 404")], vocab)
 by = {s["skill"]: s for s in p["skills"]}
-assert p["companies"] == 33 and p["failed_sources"] == [{"source": "lever/y", "error": "HTTPError: 404"}]
+assert p["companies"] == 53 and p["failed_sources"] == [{"source": "lever/y", "error": "HTTPError: 404"}]
 assert max(sum(1 for x in p["postings"] if x["company"] == c) for c in ("big", "co0")) <= 0.15 * p["sample_size"]
 assert by["LangGraph"]["required_pct"] > 0 and by["RAG"]["preferred_pct"] > 0 and by["RAG"]["required_pct"] == 0
 assert by["OpenAI API"]["postings"] == sum(1 for x in p["postings"] if x["company"] == "big")  # openai's own posting not counted
 assert p["confidence"] == "OK" and p["digest"] == digest(p)
 assert cap([{"company": "a", "_date": None}] * 3, 0.15) == [{"company": "a", "_date": None}]  # one company: cap 1
+# SmartRecruiters: paged list, one body call per posting but only for titles a lane wants; Workable: one call
+calls = []
+def fake_get(url):
+    calls.append(url)
+    if "smartrecruiters.com" in url and "/postings/" in url:
+        return {"jobAd": {"sections": {"companyDescription": {"title": "About", "text": "<p>We are big</p>"},
+                                       "qualifications": {"title": "Qualifications", "text": "<ul><li>Python</li></ul>"}}}}
+    if "smartrecruiters.com" in url:
+        page = [{"id": "1", "name": "Data Engineer", "releasedDate": "2026-10-01T00:00:00.000Z", "location": {"city": "Reston", "country": "us"}},
+                {"id": "2", "name": "Nurse", "releasedDate": "2026-10-01T00:00:00.000Z", "location": {}}]
+        return {"totalFound": 4, "content": page if "offset" not in url else [dict(x, id=x["id"] + "b") for x in page]}
+    return {"jobs": [{"title": "ML Engineer", "url": "https://apply.workable.com/x/j/1", "published_on": "2026-10-02",
+                      "location": {"city": "Austin"}, "description": "<p>Build models</p>", "requirements": "<ul><li>PyTorch</li></ul>"}]}
+fetch_postings.get = fake_get
+sr = fetch_postings.board("smartrecruiters", "Acme1")
+assert [x["title"] for x in sr] == ["Data Engineer", "Data Engineer"] and sr[0]["location"] == "Reston, us", sr
+assert "Qualifications" in sr[0]["html"] and "We are big" not in sr[0]["html"] and sr[0]["url"] == "https://jobs.smartrecruiters.com/Acme1/1"
+assert sum("/postings/" in u for u in calls) == 2 and sum("offset=2" in u for u in calls) == 1, calls
+wk = fetch_postings.board("workable", "x")
+assert wk == [{"title": "ML Engineer", "location": "Austin", "url": "https://apply.workable.com/x/j/1", "date": "2026-10-02",
+               "html": "<p>Build models</p><h3>Requirements</h3><ul><li>PyTorch</li></ul>"}], wk
 fetch_postings.board = lambda name, co: []  # a 200 with no jobs is reported, not silently counted as a live source
 assert fetch_postings.fetch_one("lever", "y") == ("lever", "y", [], "no jobs (dead slug?)")
 

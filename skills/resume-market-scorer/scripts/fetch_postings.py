@@ -3,7 +3,7 @@
 
   python3 fetch_postings.py ai --out postings.json
 
-Lanes: software, data, ml, ai. Boards: Greenhouse, Lever, Ashby (companies in references/companies.json).
+Lanes: software, data, ml, ai. Boards: Greenhouse, Lever, Ashby, SmartRecruiters, Workable (references/companies.json).
 A source that fails is reported and skipped; if every source fails, the script exits.
 """
 import argparse, hashlib, html, json, os, re, sys, urllib.request
@@ -24,7 +24,7 @@ EXCLUDE = r"manager|director|recruiter|head of|solutions architect|strategist|le
 INTERN = r"interns?|internship|co-op|fellow"
 MAX_AGE_DAYS = 60
 COMPANY_CAP = 0.15
-LOW_SAMPLE = 30
+LOW_SAMPLE = 50
 NEW_TERM_PCT = 5
 # Postings that ask for employer pedigree outright. Reported as a recognition signal; never scored.
 # A requirement word must sit within four words before the phrase, so "used by the Fortune 500" and "top-tier
@@ -41,7 +41,10 @@ BOARDS = {
     "greenhouse": "https://boards-api.greenhouse.io/v1/boards/{}/jobs?content=true",
     "lever": "https://api.lever.co/v0/postings/{}?mode=json",
     "ashby": "https://api.ashbyhq.com/posting-api/job-board/{}",
+    "smartrecruiters": "https://api.smartrecruiters.com/v1/companies/{}/postings?limit=100",
+    "workable": "https://apply.workable.com/api/v1/widget/accounts/{}?details=true",
 }
+ANY_LANE = re.compile(rf"\b(?:{'|'.join(LANES.values())})\b", re.I)
 
 
 def get(url):
@@ -111,8 +114,26 @@ def board(name, co):
                      date=j.get("createdAt"),
                      html=j.get("description", "") + "".join(f"<h3>{l['text']}</h3>{l['content']}" for l in j.get("lists", []))
                      + j.get("additional", "")) for j in data]
-    return [dict(title=j["title"], location=j.get("location", ""), url=j["jobUrl"], date=j.get("publishedAt"),
-                 html=j.get("descriptionHtml", "")) for j in data["jobs"] if j.get("isListed", True)]
+    if name == "ashby":
+        return [dict(title=j["title"], location=j.get("location", ""), url=j["jobUrl"], date=j.get("publishedAt"),
+                     html=j.get("descriptionHtml", "")) for j in data["jobs"] if j.get("isListed", True)]
+    if name == "smartrecruiters":  # the body costs one call per posting, so only titles some lane wants are fetched
+        items = data["content"]
+        while len(items) < data["totalFound"]:
+            items += get(BOARDS[name].format(co) + f"&offset={len(items)}")["content"]
+        out = []
+        for j in items:
+            if not ANY_LANE.search(j["name"]):
+                continue
+            secs = get(f"https://api.smartrecruiters.com/v1/companies/{co}/postings/{j['id']}").get("jobAd", {}).get("sections", {})
+            loc = j.get("location") or {}
+            out.append(dict(title=j["name"], location=", ".join(x for x in (loc.get("city"), loc.get("country")) if x),
+                            url=f"https://jobs.smartrecruiters.com/{co}/{j['id']}", date=j.get("releasedDate"),
+                            html="".join(f"<h3>{x.get('title', '')}</h3>{x.get('text', '')}" for k, x in secs.items() if k != "companyDescription")))
+        return out
+    return [dict(title=j["title"], location=(j.get("location") or {}).get("city") or j.get("city", ""), url=j["url"],
+                 date=j.get("published_on") or j.get("created_at"),
+                 html=f"{j.get('description', '')}<h3>Requirements</h3>{j.get('requirements', '')}") for j in data["jobs"]]
 
 
 def fetch_one(b, c):

@@ -1,6 +1,6 @@
 ---
 name: resume-market-scorer
-description: Score a resume's skills against what live job postings ask for, for civilian Software, Data, ML and AI Engineer roles. Pulls live data by script on every run: current postings from keyless job-board APIs (Greenhouse, Lever, Ashby), plus O*NET in-demand skills and the BLS outlook for the matching occupation. Grades the resume's evidence for each skill and outputs one 0–100 composite score for where the resume stands in the market for the target role, with the BLS outlook as context and the exact skills to add, prove, or cut, ranked by points gained. Use this whenever someone wants to score, grade, benchmark, or audit a resume's skills, find skill gaps for a target role, asks "how does my resume stack up," or before editing or tailoring a resume, even if they don't say "score."
+description: Score a resume's skills against what live job postings ask for, for civilian Software, Data, ML and AI Engineer roles. Pulls live data by script on every run: current postings from keyless job-board APIs (Greenhouse, Lever, Ashby, SmartRecruiters, Workable), plus O*NET in-demand skills and the BLS outlook for the matching occupation. Grades the resume's evidence for each skill and outputs one 0–100 composite score for where the resume stands in the market for the target role, with the BLS outlook as context and the exact skills to add, prove, or cut, ranked by points gained. Use this whenever someone wants to score, grade, benchmark, or audit a resume's skills, find skill gaps for a target role, asks "how does my resume stack up," or before editing or tailoring a resume, even if they don't say "score."
 ---
 
 # Resume Market Scorer
@@ -87,7 +87,7 @@ Built from: live postings XX · O*NET market fit XX (tech XX, core XX).
 Lane outlook (BLS [period]): [growth]% growth, median pay $[X], [N]K openings/yr.
 
 Sample: N postings, X companies, [boards], fetched [date], confidence [OK | LOW]. O*NET [code] [title], pulled [date].
-No Workday-hosted postings (no keyless API); sample leans tech/startup.
+No Workday-hosted postings (no keyless API); SmartRecruiters and Workable add enterprise and contractor employers, but the sample still leans tech/startup.
 
 STRONG (proven, high demand)
 1. [Skill] — X% of postings, O*NET [flags]
@@ -107,6 +107,6 @@ Sources: [boards and companies sampled; every URL in onet.json "sources"]
 ```
 
 - Each list max 5. Copy numbers from the script output.
-- Always print the bias line. If confidence is LOW (under 30 postings), say so next to the score. If the pool is under 20, say the standing is provisional.
+- Always print the bias line. If confidence is LOW (under 50 postings), say so next to the score. If the pool is under 20, say the standing is provisional.
 - The score is a VWC definition, not a hiring prediction; say so once.
 - A skill neither source knows is reported, never scored. Suggest adding a real tool to `references/skills_vocab.json`.
