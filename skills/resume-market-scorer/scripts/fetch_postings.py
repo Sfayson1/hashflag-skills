@@ -13,15 +13,15 @@ from datetime import datetime, timedelta, timezone
 
 REF = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "references")
 LANES = {
-    "software": r"software engineer|software developer|backend|frontend|full[- ]?stack",
-    "data": r"data engineer|analytics engineer|data platform",
-    "ml": r"machine learning engineer|ml engineer|mlops",
-    "ai": r"ai engineer|applied ai|llm engineer|genai|generative ai",
+    "software": r"software engineer|software developer|backend|back-end|frontend|front-end|full[- ]?stack|web developer",
+    "data": r"data engineer|analytics engineer|data platform|data infrastructure|etl|data warehouse|data pipelines?",
+    "ml": r"machine learning|ml engineer|mlops|applied scientist|ml platform|research engineer",
+    "ai": r"ai engineer|applied ai|llm|genai|generative ai|ai platform|agent engineer|agentic",
 }
 # O*NET occupation per lane. AI and ML engineers have no occupation of their own; the report says so.
 LANE_ONET = {"software": "15-1252.00", "data": "15-1243.00", "ml": "15-2051.00", "ai": "15-1252.00"}
-EXCLUDE = r"manager|director|recruiter"
-INTERN = r"interns?|internship"
+EXCLUDE = r"manager|director|recruiter|head of|solutions architect|strategist|leadership"
+INTERN = r"interns?|internship|co-op|fellow"
 MAX_AGE_DAYS = 60
 COMPANY_CAP = 0.15
 LOW_SAMPLE = 30
