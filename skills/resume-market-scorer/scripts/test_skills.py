@@ -45,7 +45,7 @@ assert p["confidence"] == "OK" and p["digest"] == digest(p)
 assert cap([{"company": "a", "_date": None}] * 3, 0.15) == [{"company": "a", "_date": None}]  # one company: cap 1
 
 # scoring
-names = [s["skill"] for s in checklist(p)]
+names = [m for s in checklist(p) for m in s["members"]]
 ev = lambda st, q="Built it, cut load 40%": {"strength": st, "evidence": "" if st == "none" else q}
 grade = lambda g: {"skills": [{"skill": n} | ev(g.get(n, "none")) for n in names]}
 assert score(p, grade({n: "proven" for n in names}), vocab)["score"] == 100
@@ -62,6 +62,19 @@ for k in ("prove_it", "add"):
     assert [x["lift"] for x in r[k]] == sorted((x["lift"] for x in r[k]), reverse=True), k
 assert {x["skill"] for x in r["prove_it"]} == {"Python", "Docker", "Rust"}
 assert abs(r["score"] + sum(x["lift"] for x in r["rows"]) - 100) < 0.5
+
+# rival stacks: one slot per lane, worth its most-requested member; the best member's evidence counts; never CUT
+sk = lambda n, v: {"skill": n, "family": None, "postings": int(v > 0), "pct": v, "required_pct": v, "preferred_pct": 0}
+sl = dict(p, skills=[sk("Python", 60.0), sk("AWS", 20.0), sk("OpenAI API", 9.0), sk("Azure", 6.0), sk("GCP", 3.0), sk("Gemini API", 1.0), sk("PHP", 1.0), sk("JAX", 0)])
+assert [(s["skill"], s["pct"], s["members"]) for s in checklist(sl)] == [
+    ("Python", 60.0, ["Python"]), ("Cloud platform", 20.0, ["AWS", "Azure", "GCP"]), ("LLM provider", 9.0, ["OpenAI API", "Gemini API"]), ("PHP", 1.0, ["PHP"])]
+azure = {"skills": [{"skill": "Azure"} | ev("proven"), {"skill": "Python"} | ev("none"), {"skill": "Gemini API"} | ev("listed"), {"skill": "PHP"} | ev("listed")]}
+sr = score(sl, azure, vocab)
+assert sr["score"] == round(100 * (20 + 9 * 0.4 + 1 * 0.4) / 90, 1) and sr["cut"] == [{"skill": "PHP", "pct": 1.0}], (sr["score"], sr["cut"])  # Azure alone fills the slot; Gemini never CUT
+try:
+    score(sl, {"skills": azure["skills"][1:]}, vocab); raise AssertionError("slot")
+except ValueError as e:
+    assert "Missing: Cloud platform" in str(e), e
 
 # CUT: on the resume but under 2% demand; unknown skills reported, never scored
 low = dict(p, skills=p["skills"] + [{"skill": "PHP", "family": None, "postings": 1, "pct": 1.0, "required_pct": 1.0, "preferred_pct": 0}])

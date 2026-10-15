@@ -25,6 +25,16 @@ POOL = os.path.join(REF, "pool.json")
 MIN_POOL = 20  # scored resumes a lane needs before percentile bands mean anything
 # VWC definition: composite = 50% live postings + 50% O*NET market fit (itself 70% tech, 30% core).
 W_POSTINGS, W_ONET = 0.5, 0.5
+# VWC definition: rival stacks score as one slot, per lane. The best member's evidence counts and the slot is
+# worth its most-requested member, so nobody loses points for a stack they don't use. Same rule as STACKS in score.py.
+SLOTS = {
+    "*": {"Cloud platform": ["AWS", "Azure", "GCP"]},
+    "ai": {"LLM provider": ["OpenAI API", "Anthropic API", "Gemini API"]},
+    "data": {"Warehouse": ["Snowflake", "Databricks", "BigQuery", "Redshift"]},
+    "ml": {"Deep-learning framework": ["PyTorch", "TensorFlow", "JAX"]},
+    "software": {"JavaScript or TypeScript": ["JavaScript", "TypeScript"], "Front-end framework": ["React", "Angular", "Vue"],
+                 "Java or C#": ["Java", "C#"]},
+}
 # Words O*NET adds around a tool's name ("Oracle Java", "IBM Terraform", "Amazon Web Services AWS software")
 ONET_FILLER = re.compile(r"\b(?:software|oracle|microsoft|google|ibm|apache|framework)\b", re.I)
 
@@ -87,8 +97,24 @@ def quoted(quote, text):
     return True
 
 
+def slots(lane):
+    return SLOTS["*"] | SLOTS.get(lane, {})
+
+
 def checklist(p):
-    return [s for s in p["skills"] if s["postings"] > 0][:TOP]
+    """Top skills by share; each rival stack is one slot, placed and weighted by its most-requested member."""
+    of = {m: slot for slot, ms in slots(p["lane"]).items() for m in ms}
+    live = {s["skill"] for s in p["skills"] if s["postings"] > 0}
+    out, seen = [], set()
+    for s in p["skills"]:  # sorted by share, so a slot's first member is its top one
+        slot = of.get(s["skill"])
+        if s["skill"] not in live or slot in seen:
+            continue
+        if slot:
+            seen.add(slot)
+            s = s | {"skill": slot, "members": [m for m in slots(p["lane"])[slot] if m in live], "family": None}
+        out.append(s if slot else s | {"members": [s["skill"]]})
+    return out[:TOP]
 
 
 def score(p, resume, vocab, text=None, onet=None):
@@ -108,23 +134,24 @@ def score(p, resume, vocab, text=None, onet=None):
         graded[canon.get(name.lower(), name)] = e
 
     top = checklist(p)
-    missing = [s["skill"] for s in top if s["skill"] not in graded]
+    missing = [s["skill"] for s in top if not any(m in graded for m in s["members"])]
     if missing:
-        raise ValueError(f"Missing: {', '.join(missing)}. Grade every --checklist skill, 'none' if absent.")
+        raise ValueError(f"Missing: {', '.join(missing)}. Grade every --checklist skill, 'none' if absent (a slot: the member used).")
 
     rows = []
     for s in top:
-        own = STRENGTH[graded[s["skill"]]["strength"]]
-        kids = [(FAMILY_CREDIT * STRENGTH[e["strength"]], n) for n, e in graded.items() if entry.get(n, {}).get("family") == s["skill"]]
+        own, name = max((STRENGTH[graded[m]["strength"]], m) for m in s["members"] if m in graded)  # best member counts
+        kids = [(FAMILY_CREDIT * STRENGTH[e["strength"]], n) for n, e in graded.items() if entry.get(n, {}).get("family") in s["members"]]
         fam, via = max(kids, default=(0.0, None))
-        rows.append(s | {"weight": s["pct"], "grade": graded[s["skill"]]["strength"], "strength": max(own, fam),
-                         "via": via if fam > own else None, "fixable": bool(graded[s["skill"]].get("fixable"))})
+        rows.append(s | {"weight": s["pct"], "grade": graded[name]["strength"], "strength": max(own, fam),
+                         "via": via if fam > own else None, "fixable": bool(graded[name].get("fixable"))})
     total = sum(r["weight"] for r in rows)
     rx = {v["skill"]: m for v, m in matchers(vocab)}
     for r in rows:
         r["lift"] = round(100 * r["weight"] * (1 - r["strength"]) / total, 1)
         if onet:
-            r["onet_pct"] = next((t["posting_pct"] for t in onet["tech_skills"] if any(x.search(t["skill"]) for x in rx[r["skill"]])), None)
+            r["onet_pct"] = next((t["posting_pct"] for t in onet["tech_skills"] if any(x.search(t["skill"]) for m in r["members"] for x in rx[m])), None)
+    in_slot = {m for ms in slots(p["lane"]).values() for m in ms}  # a rival stack is never CUT
     by_lift = lambda xs: sorted(xs, key=lambda r: -r["lift"])[:SHOW]
     demand = {s["skill"]: s["pct"] for s in p["skills"]}
     on_resume = [(n, e) for n, e in graded.items() if e["strength"] != "none"]
@@ -137,11 +164,12 @@ def score(p, resume, vocab, text=None, onet=None):
         "score": round(100 * sum(r["weight"] * r["strength"] for r in rows) / total, 1),
         "definition": f"VWC definition: top {TOP} skills by share of postings; weight = share; "
                       f"score = 100 x sum(weight x strength) / sum(weight). "
-                      f"Family parent credited at {FAMILY_CREDIT} of a child's grade.",
+                      f"Family parent credited at {FAMILY_CREDIT} of a child's grade. Rival stacks are one slot: "
+                      + "; ".join(f"{k} = {' / '.join(v)}" for k, v in slots(p["lane"]).items()) + ".",
         "strong": sorted((r for r in rows if r["strength"] == 1), key=lambda r: -r["pct"])[:SHOW],
         "prove_it": by_lift(r for r in rows if r["grade"] in ("applied", "listed", "stale")),
         "add": add,
-        "cut": sorted(({"skill": n, "pct": demand[n]} for n, e in on_resume if n in demand and demand[n] < CUT_PCT),
+        "cut": sorted(({"skill": n, "pct": demand[n]} for n, e in on_resume if n in demand and demand[n] < CUT_PCT and n not in in_slot),
                       key=lambda x: x["pct"])[:SHOW],
         "not_in_vocab": sorted(n for n, e in on_resume if n not in entry),
         "new_terms": p["new_terms"][:SHOW],
@@ -184,7 +212,7 @@ def composite(prep, orep, resume, vocab):
     onet_rows, items = list(orep["all"]), []
     for r in prep["rows"]:
         o = next((x for x in onet_rows if x["section"] == "tech"
-                  and any(m.search(n) for n in onet_scorer.STACKS.get(x["skill"], [x["skill"]]) for m in rx[r["skill"]])), None)
+                  and any(m.search(n) for n in onet_scorer.STACKS.get(x["skill"], [x["skill"]]) for k in r["members"] for m in rx[k])), None)
         if o:
             onet_rows.remove(o)
         items.append({"skill": r["skill"], "grade": r["grade"], "pct": r["pct"], "onet": o and o["flags"], "via": r["via"],
@@ -238,7 +266,8 @@ def main():
               f"and O*NET {onet['onet_code']} {onet.get('onet_title')}, plus every other skill on the resume:")
         for s in checklist(p):
             print(f"  [postings] {s['skill']:<22} {s['pct']:>5}% of postings (required {s['required_pct']}%, preferred {s['preferred_pct']}%)"
-                  + (f"  family: {s['family']}" if s.get("family") else ""))
+                  + (f"  family: {s['family']}" if s.get("family") else "")
+                  + (f"  any of: {', '.join(s['members'])}; top member's share" if len(s["members"]) > 1 else ""))
         for section, name, _, label, _ in onet_scorer.checklist(onet):
             print(f"  [onet {section}] {name}  ({label})")
         print("One entry per skill covers both lists; use onet_name when the resume's term differs from O*NET's "
