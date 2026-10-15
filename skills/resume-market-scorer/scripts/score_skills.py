@@ -15,7 +15,6 @@ import score as onet_scorer
 
 STRENGTH = {"proven": 1.0, "applied": 0.7, "listed": 0.4, "stale": 0.3, "none": 0.0}
 TOP = 25
-REQUIRED_BOOST = 1.5   # VWC definition: a skill asked for mostly as required weighs more
 FAMILY_CREDIT = 0.7    # VWC definition: LangGraph proven → LangChain credited 0.7
 CUT_PCT = 2
 MAX_AGE_DAYS = 14
@@ -116,8 +115,7 @@ def score(p, resume, vocab, text=None, onet=None):
         own = STRENGTH[graded[s["skill"]]["strength"]]
         kids = [(FAMILY_CREDIT * STRENGTH[e["strength"]], n) for n, e in graded.items() if entry.get(n, {}).get("family") == s["skill"]]
         fam, via = max(kids, default=(0.0, None))
-        rows.append(s | {"weight": s["pct"] * (REQUIRED_BOOST if s["required_pct"] >= s["preferred_pct"] else 1),
-                         "grade": graded[s["skill"]]["strength"], "strength": max(own, fam),
+        rows.append(s | {"weight": s["pct"], "grade": graded[s["skill"]]["strength"], "strength": max(own, fam),
                          "via": via if fam > own else None, "fixable": bool(graded[s["skill"]].get("fixable"))})
     total = sum(r["weight"] for r in rows)
     rx = {v["skill"]: m for v, m in matchers(vocab)}
@@ -135,8 +133,8 @@ def score(p, resume, vocab, text=None, onet=None):
         "lane": p["lane"], "fetched_at": p["fetched_at"],
         "sample": {k: p[k] for k in ("sample_size", "companies", "boards", "confidence", "failed_sources")},
         "score": round(100 * sum(r["weight"] * r["strength"] for r in rows) / total, 1),
-        "definition": f"VWC definition: top {TOP} skills by share of postings; weight = share, x{REQUIRED_BOOST} when asked "
-                      f"for as required at least as often as preferred; score = 100 x sum(weight x strength) / sum(weight). "
+        "definition": f"VWC definition: top {TOP} skills by share of postings; weight = share; "
+                      f"score = 100 x sum(weight x strength) / sum(weight). "
                       f"Family parent credited at {FAMILY_CREDIT} of a child's grade.",
         "strong": sorted((r for r in rows if r["strength"] == 1), key=lambda r: -r["pct"])[:SHOW],
         "prove_it": by_lift(r for r in rows if r["grade"] in ("applied", "listed", "stale")),

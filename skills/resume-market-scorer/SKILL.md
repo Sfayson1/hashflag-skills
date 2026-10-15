@@ -15,7 +15,7 @@ Step 1 of the resume workflow: **measure, then edit.** This skill scores; it doe
 - **Never score from memory.** The scorer refuses market data the scripts didn't write, that was edited, or that is stale (postings 14 days, O*NET 30).
 - **Never write resumes in a repo.** The working dir is `~/resume-scores/<person>/`. The scorer refuses files inside a git repo.
 - **Every number in the report comes from the scripts.** Don't estimate, round differently, or add your own.
-- **Label VWC definitions.** The score formula, family rollup and required/preferred split are Vets Who Code definitions, not industry standards; say so where they appear.
+- **Label VWC definitions.** The score formula, family rollup and rival-stack slots are Vets Who Code definitions, not industry standards; say so where they appear.
 
 Scripts are in `${CLAUDE_SKILL_DIR}/scripts/` (call it `S`). Run them with `python3`.
 
@@ -65,8 +65,8 @@ Scripts are in `${CLAUDE_SKILL_DIR}/scripts/` (call it `S`). Run them with `pyth
 One score for where the resume stands in the market for the target lane:
 
 - **Composite = 50% live postings + 50% O*NET market fit.** O*NET market fit is 70% tech, 30% core, so overall: postings 50 · O*NET tech 35 · O*NET core 15.
-- **Live postings:** the top 25 skills by share of postings in the lane. Weight = share, ×1.5 when asked for as required at least as often as preferred. Required vs preferred is a VWC heuristic: text under a header like "Preferred", "Nice to have" or "Bonus" is preferred; about, benefits and pay sections are skipped; the rest is required.
-- **O*NET tech:** the top 15 Hot Technologies by share of postings, ×1.25 if In Demand. **O*NET core:** Transferable Skills and Knowledge with importance 50+.
+- **Live postings:** the top 25 skills by share of postings in the lane. Weight = share. The required/preferred split in the checklist is context only (VWC heuristic: text under a header like "Preferred", "Nice to have" or "Bonus" is preferred); most postings have no such header, so it never changes the weight.
+- **O*NET tech:** the top 15 Hot Technologies by share of postings, ×1.25 if In Demand. **O*NET core:** Transferable Skills and Knowledge with importance 50+, minus items no bullet can evidence (English Language, Time Management, Coordination...; the list is `CORE_EXCLUDE` in `score.py`).
 - **The market prevails.** When the lane's live postings track an O*NET tool, the live share replaces O*NET's before the top 15 is picked (Java for the ai lane: O*NET 25% → market 5%). An O*NET tool the market doesn't measure isn't scored. O*NET still decides which tools and core skills count; the market decides what each tool weighs. A tool maps only when its O*NET name is that skill plus vendor filler ("Oracle Java"), so "Microsoft SQL Server" doesn't borrow SQL's share. The report prints every override.
 - **Family rollup:** a resume skill in a family credits its parent at 0.7 of its grade (LangGraph proven → LangChain 0.7).
 - **Lift** = composite points gained if that skill moved to proven. A skill in both sources gets both lifts, weighted. Every recommendation is sorted by lift.
