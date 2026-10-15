@@ -145,6 +145,7 @@ with tempfile.TemporaryDirectory() as clean:
     assert "REFUSED: postings.json was not written by fetch_postings.py" in run(p | {"fetched_by": "me"}, clean).stderr
     old = p | {"fetched_at": (now - timedelta(days=15)).isoformat()}
     assert "days old" in run(old | {"digest": digest(old)}, clean).stderr
+    assert "REFUSED: onet.json is 15-1252.00; the ml lane scores against 15-2051.00" in run(p | {"lane": "ml"} | {"digest": digest(p | {"lane": "ml"})}, clean).stderr
 
 with tempfile.TemporaryDirectory() as repo:  # a resume inside a git repo is refused
     os.makedirs(os.path.join(repo, ".git")); os.makedirs(os.path.join(repo, "people"))

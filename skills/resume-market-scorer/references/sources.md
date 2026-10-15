@@ -14,9 +14,11 @@ The sample leans tech and startup. Every report says so.
 ## O*NET and BLS (scripts/fetch_market.py, scored by scripts/score.py)
 O*NET Hot Technologies, skills and knowledge, and BLS projections for one occupation. Full URL list in `market-sources.md`.
 ```bash
-python3 fetch_market.py --search "software developer"
-BLS_CONTACT_EMAIL=<your email> python3 fetch_market.py 15-1252.00 --role "Software Engineer" --out onet.json
+BLS_CONTACT_EMAIL=<your email> python3 fetch_market.py ai --out onet.json
+python3 fetch_market.py --search "software developer"   # any other 15-xxxx code
 ```
 BLS refuses requests without a contact email in the User-Agent; use the email of the person running it.
-Codes: 15-1252.00 Software Developers · 15-1254.00 Web Developers · 15-1243.00 Database Architects ·
-15-2051.00 Data Scientists. AI and ML engineer roles have no O*NET occupation of their own.
+
+Lane → occupation (`LANE_ONET` in `fetch_postings.py`, verified with `--search` on 2026-10-15):
+software 15-1252.00 Software Developers · data 15-1243.00 Database Architects · ml 15-2051.00 Data Scientists ·
+ai 15-1252.00 Software Developers. AI and ML engineer roles have no O*NET occupation of their own.

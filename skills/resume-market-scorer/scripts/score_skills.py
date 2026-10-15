@@ -10,7 +10,7 @@ report must live outside any git repo. The formula is fixed; it never changes pe
 """
 import argparse, json, os, re, sys
 from datetime import datetime, timezone
-from fetch_postings import REF, digest, matchers
+from fetch_postings import LANE_ONET, REF, digest, matchers
 import score as onet_scorer
 
 STRENGTH = {"proven": 1.0, "applied": 0.7, "listed": 0.4, "stale": 0.3, "none": 0.0}
@@ -51,9 +51,11 @@ def check_postings(p, now=None):
         refuse(f"postings.json is {age} days old (max {MAX_AGE_DAYS}). Re-run fetch_postings.py.")
 
 
-def check_onet(o):
+def check_onet(o, lane):
     if o.get("fetched_by") != "fetch_market.py":
         refuse("onet.json was not written by fetch_market.py. Run it; never hand-write market data.")
+    if o.get("onet_code") != LANE_ONET[lane]:
+        refuse(f"onet.json is {o.get('onet_code')}; the {lane} lane scores against {LANE_ONET[lane]}. Re-run fetch_market.py {lane}.")
     age = age_days(o.get("fetched_at"), "onet.json", "fetch_market.py")
     if age > ONET_MAX_AGE_DAYS:
         refuse(f"onet.json is {age} days old (max {ONET_MAX_AGE_DAYS}). Re-run fetch_market.py.")
@@ -226,7 +228,7 @@ def main():
     p = json.load(open(a.postings))
     check_postings(p)
     onet = json.load(open(a.onet))
-    check_onet(onet)
+    check_onet(onet, p["lane"])
     vocab = json.load(open(os.path.join(REF, "skills_vocab.json")))
     onet_raw = onet
     onet, override = market_onet(onet, p, vocab)

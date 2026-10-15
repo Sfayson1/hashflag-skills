@@ -18,6 +18,8 @@ LANES = {
     "ml": r"machine learning engineer|ml engineer|mlops",
     "ai": r"ai engineer|applied ai|llm engineer|genai|generative ai",
 }
+# O*NET occupation per lane. AI and ML engineers have no occupation of their own; the report says so.
+LANE_ONET = {"software": "15-1252.00", "data": "15-1243.00", "ml": "15-2051.00", "ai": "15-1252.00"}
 EXCLUDE = r"manager|director|recruiter"
 INTERN = r"interns?|internship"
 MAX_AGE_DAYS = 60

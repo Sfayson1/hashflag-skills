@@ -21,12 +21,12 @@ Scripts are in `${CLAUDE_SKILL_DIR}/scripts/` (call it `S`). Run them with `pyth
 
 ## Workflow
 
-1. **Lane and occupation.** Lane is one of `software`, `data`, `ml`, `ai`; if it's missing, ask one question for it. Then map it to an O*NET occupation with `python3 "$S/fetch_market.py" --search "<role>"` and state the code with why in one line (AI and ML engineer roles have no O*NET occupation of their own; use 15-1252.00 Software Developers or 15-2051.00 Data Scientists and say so).
+1. **Lane.** One of `software`, `data`, `ml`, `ai`; if it's missing, ask one question for it. The lane fixes the O*NET occupation (`LANE_ONET` in `fetch_postings.py`): software and ai → 15-1252.00 Software Developers, data → 15-1243.00 Database Architects, ml → 15-2051.00 Data Scientists. AI and ML engineers have no O*NET occupation of their own; say so in the report.
 2. **Fetch both sources:**
    ```bash
    mkdir -p ~/resume-scores/<person> && cd ~/resume-scores/<person>
    python3 "$S/fetch_postings.py" <lane> --out postings.json
-   BLS_CONTACT_EMAIL=<their email> python3 "$S/fetch_market.py" <CODE> --role "<role>" --out onet.json
+   BLS_CONTACT_EMAIL=<their email> python3 "$S/fetch_market.py" <lane> --out onet.json
    ```
    Report any `SOURCE FAILED` lines. postings.json stays valid for 14 days. BLS refuses requests without a contact email: use the email of the person running the skill; if it isn't set, ask for it. Never invent or reuse one.
 3. **Checklist:** `python3 "$S/score_skills.py" postings.json --onet onet.json --checklist` lists every postings skill and every O*NET item.

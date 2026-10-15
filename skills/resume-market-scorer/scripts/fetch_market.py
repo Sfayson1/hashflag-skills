@@ -1,7 +1,8 @@
 #!/usr/bin/env python3
 """Pull O*NET and BLS data for one occupation, live. Stdlib only.
 
-  python3 fetch_market.py --search "software developer"
+  python3 fetch_market.py ai --out onet.json                 # lane: software, data, ml or ai
+  python3 fetch_market.py --search "software developer"      # look up any other 15-xxxx code
   python3 fetch_market.py 15-1252.00 --role "Senior Software Engineer" --out onet.json
 
 Needs BLS_CONTACT_EMAIL (BLS returns 403 unless the User-Agent carries a contact email).
@@ -9,6 +10,7 @@ Any fetch or parse error exits non-zero. Nothing is ever estimated or filled in.
 """
 import argparse, csv, html, io, json, os, re, sys, urllib.parse, urllib.request
 from datetime import datetime, timezone
+from fetch_postings import LANE_ONET
 
 ONET = "https://www.onetonline.org"
 BLS_URL = "https://www.bls.gov/emp/tables/occupational-projections-and-characteristics.htm"
@@ -135,7 +137,7 @@ def fetch(code, role, email):
 
 def main():
     ap = argparse.ArgumentParser()
-    ap.add_argument("code", nargs="?")
+    ap.add_argument("code", nargs="?", help="a lane (software, data, ml, ai) or an O*NET code")
     ap.add_argument("--search")
     ap.add_argument("--role")
     ap.add_argument("--out")
@@ -145,8 +147,10 @@ def main():
         for c, t in search(a.search, ua)[:10]:  # O*NET ranks by relevance; the tail is noise
             print(f"{c}  {t}")
         return
+    if a.code in LANE_ONET:
+        a.code, a.role = LANE_ONET[a.code], a.role or f"{a.code} engineer"
     if not (a.code and a.role and a.out):
-        ap.error("give --search TERM, or CODE --role ROLE --out onet.json")
+        ap.error("give LANE --out onet.json, --search TERM, or CODE --role ROLE --out onet.json")
     check_code(a.code)
     email = os.environ.get("BLS_CONTACT_EMAIL", "").strip()
     if "@" not in email:
