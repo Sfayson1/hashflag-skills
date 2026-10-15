@@ -28,3 +28,10 @@ BLS refuses requests without a contact email in the User-Agent; use the email of
 Lane → occupation (`LANE_ONET` in `fetch_postings.py`, verified with `--search` on 2026-10-15):
 software 15-1252.00 Software Developers · data 15-1243.00 Database Architects · ml 15-2051.00 Data Scientists ·
 ai 15-1252.00 Software Developers. AI and ML engineer roles have no O*NET occupation of their own.
+
+## Reference pool (references/pool.json)
+Real composite scores per lane, nothing else: no names, no resume text, no what-ifs or test runs. Each entry is
+keyed by a hash of the person's `~/resume-scores/<person>` folder name, so `--add-to-pool` replaces that person's
+earlier score instead of appending. Bands are percentiles of the lane's pool: Competitive is above the median,
+the line NYC Local Law 144 bias audits draw (6 RCNY 5-301). Under 20 scores a lane reports rank only ("above N
+of M"), and the skill works the same either way.
