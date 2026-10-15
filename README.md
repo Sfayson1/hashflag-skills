@@ -2,13 +2,14 @@
 
 Skills and agents built at Vets Who Code that help nonprofits, job seekers and small businesses create and operate straight from the terminal.
 
-**Status:** one skill shipped; the content engines below are in planning. The work is tracked in [issues](https://github.com/Vets-Who-Code/hashflag-skills/issues).
+**Status:** two skills shipped; the content engines below are in planning. The work is tracked in [issues](https://github.com/Vets-Who-Code/hashflag-skills/issues).
 
 ## Skills
 
 | Skill | What |
 | --- | --- |
 | [hashflagify](skills/hashflagify/SKILL.md) | Turns a user's `<login>/<login>` repo or an org's `.github` repo into a self-updating Mission Brief profile README in VWC colors. Live on [Vets-Who-Code](https://github.com/Vets-Who-Code) and [jeromehardaway](https://github.com/jeromehardaway). |
+| [resume-market-scorer](skills/resume-market-scorer/SKILL.md) | Scores a Software, Data, ML or AI Engineer resume 0–100 against the market for the target role: live job postings plus O*NET in-demand skills, with the BLS outlook as context. Ranks what to add, prove or cut, plus ATS wording fixes. Run it before editing a resume. |
 
 ## Install
 

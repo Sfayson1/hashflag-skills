@@ -1,0 +1,43 @@
+{
+  "_note": "Slugs verified live 2026-10-15 (HTTP 200, at least one job). Re-verify with scripts/verify_companies.py before a release.",
+  "greenhouse": [
+    "databricks", "anthropic", "scaleai", "stripe", "airbnb", "robinhood", "instacart", "gitlab", "figma",
+    "cloudflare", "datadog", "mongodb", "coinbase", "discord", "dropbox", "pinterest", "reddit", "lyft",
+    "twilio", "asana", "brex", "affirm", "chime", "samsara", "elastic", "okta", "roblox", "duolingo",
+    "airtable", "vercel", "mercury", "gusto", "andurilindustries", "fivetran", "grafanalabs", "cockroachlabs",
+    "pagerduty", "togetherai", "waymo", "nuro", "sofi", "toast", "squarespace", "block", "flexport",
+    "navapbc", "codeforamerica", "skylighthq", "oddball", "raft", "agilesix", "bloomworks",
+    "abnormalsecurity", "alloy", "attentive", "braze", "checkr", "coreweave", "cresta", "deliveroo",
+    "doordashusa", "faire", "gocardless", "honeycomb", "imc", "intercom", "jumptrading", "kodiak",
+    "lucidmotors", "monzo", "nextdoor", "pathai", "point72", "sigmacomputing", "snorkelai", "starburst",
+    "turing", "upstart", "verkada", "webflow", "xai"
+  ],
+  "lever": [
+    "palantir", "spotify", "shieldai", "zoox", "outreach"
+  ],
+  "ashby": [
+    "openai", "ramp", "notion", "linear", "perplexity", "cursor", "cohere", "modal", "replit", "elevenlabs",
+    "supabase", "posthog", "harvey", "sierra", "snowflake", "runway", "primer", "abridge", "amplitude",
+    "baseten", "benchling", "cartesia", "cerebras", "character", "clickhouse", "cognition", "d-matrix",
+    "decagon", "deepgram", "elicit", "exa", "fireworks", "handshake", "harmonic", "hex", "krea", "langchain",
+    "lovable", "mercor", "nousresearch", "oyster", "pika", "plaid", "primeintellect", "quora", "reflectionai",
+    "render", "sentry", "suno", "synthesia", "thinkingmachines", "thumbtack", "vanta", "vapi", "wayve",
+    "writer", "zyphra"
+  ],
+  "smartrecruiters": [
+    "ServiceNow", "LinkedIn3", "Experian", "WesternDigital", "AristaNetworks", "RenesasElectronics",
+    "Freshworks", "Wix2", "IFS1", "Nexthink", "Mirantis", "Canva", "ASOS", "ABOUTYOUGmbH", "Grab",
+    "TurnitinLLC", "Tieto2", "SOSi1", "OteemoInc", "GDMSI", "USM2", "Netcompany1", "CERN", "Wise",
+    "ScalableGmbH", "NorthwesternMutual", "AJBell1", "Cermaticom", "Versant3", "WellmarkInc", "Intuitive",
+    "Intelerad", "redcare-pharmacy", "NielsenIQ", "Sportradar", "Blend360", "CapTechConsulting", "Endava",
+    "Devoteam"
+  ],
+  "workable": [
+    "genetec-inc", "valsoft-corp", "datacom1", "garmin-cluj", "seeq", "tetrascience", "learnosity",
+    "epignosis", "fuseenergy", "runware", "huggingface", "pony-dot-ai", "coldquanta",
+    "oxford-quantum-circuits-8", "palona", "gomining", "creativechaos", "scitec", "credence", "sigmadefense",
+    "aviture", "dnigov", "arondite", "kda-consulting", "civica-uk-ltd-1", "starling-bank", "datavisor-jobs",
+    "classwallet", "foodics", "trexquant", "bestex-research", "c-the-signs", "innovaccer-analytics",
+    "tiger-analytics", "deeplight", "plainconcepts", "integrant", "sedona-digital", "codurance", "devsinc-17"
+  ]
+}
