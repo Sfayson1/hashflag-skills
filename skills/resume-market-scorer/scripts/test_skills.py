@@ -13,6 +13,8 @@ now = datetime.now(timezone.utc)
 assert not term_re("Java").search("JavaScript") and term_re("Java").search("Java/Kotlin")
 assert not term_re("SQL").search("PostgreSQL") and term_re("C++").search("C++ and Rust")
 assert term_re("Go", True).search("Go or Rust") and not term_re("Go", True).search("go to market")
+assert not term_re("Hive", True).search("the hive mind") and not term_re("Great Expectations", True).search("we have great expectations")
+assert term_re("A/B testing").search("ran A/B testing") and term_re("Pub/Sub").search("Pub/Sub and Kafka")
 agents = next(rxs for v, rxs in matchers(vocab) if v["skill"] == "AI agents")
 assert any(r.search("build AI agents") for r in agents) and not any(r.search("customer support agents") for r in agents)
 
