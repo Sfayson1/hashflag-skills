@@ -99,7 +99,7 @@
   {"skill": "Fine-tuning", "aliases": ["fine tuning", "finetuning", "LoRA", "RLHF"]},
   {"skill": "Evals", "aliases": ["LLM evaluation"]},
   {"skill": "Prompt engineering"},
-  {"skill": "Agents", "aliases": ["AI agents", "agentic"]},
+  {"skill": "AI agents", "aliases": ["agentic", "LLM agents", "autonomous agents", "multi-agent"]},
   {"skill": "HTML"},
   {"skill": "CSS", "aliases": ["Tailwind", "Tailwind CSS", "Sass"]},
   {"skill": "Jenkins"},
