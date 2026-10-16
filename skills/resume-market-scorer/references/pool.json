@@ -1,10 +1,11 @@
 {
- "_note": "Reference pool of real composite scores per lane (VWC). Scores only: no names, no resume text. One entry per person per lane, latest version. Bands are percentiles of this pool; Competitive = above the lane median, the line NYC Local Law 144 audits use (6 RCNY 5-301).",
+ "_note": "Reference pool of real composite scores per lane (VWC). Scores only: no names, no resume text; id is a hash of the person's folder name so a re-score replaces their entry. One entry per person per lane, latest version. Bands are percentiles of this pool; Competitive = above the lane median, the line NYC Local Law 144 audits use (6 RCNY 5-301).",
  "software": [],
  "data": [],
  "ml": [],
  "ai": [
   {
+   "id": "9c3125a00806",
    "score": 67.7,
    "scored": "2026-10-14"
   }

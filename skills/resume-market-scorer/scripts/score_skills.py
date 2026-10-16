@@ -8,7 +8,7 @@ O*NET in-demand tech and core skills, with the BLS lane outlook as context.
 postings.json must come from fetch_postings.py, unedited, under 14 days old. The resume, its text and the
 report must live outside any git repo. The formula is fixed; it never changes per person.
 """
-import argparse, json, os, re, sys
+import argparse, hashlib, json, os, re, sys
 from datetime import datetime, timezone
 from fetch_postings import LANE_ONET, REF, digest, matchers
 import score as onet_scorer
@@ -251,7 +251,7 @@ def main():
     ap.add_argument("--text", help="the resume as plain text; every evidence quote must appear in it")
     ap.add_argument("--onet", required=True, help="onet.json from fetch_market.py")
     ap.add_argument("--out")
-    ap.add_argument("--add-to-pool", action="store_true", help="record this score in references/pool.json (real resumes only, once per person)")
+    ap.add_argument("--add-to-pool", action="store_true", help="record this score in references/pool.json (real resumes only; replaces this person's entry)")
     a = ap.parse_args()
     p = json.load(open(a.postings))
     check_postings(p)
@@ -288,7 +288,10 @@ def main():
         pool = json.load(open(POOL))
         rep["pool"] = pool_band(rep["score"], [x["score"] for x in pool[rep["lane"]]])
         if a.add_to_pool:
-            pool[rep["lane"]].append({"score": rep["score"], "scored": rep["fetched_at"][:10]})
+            # one entry per person per lane: the key is a hash of the person's folder name, never the name itself
+            key = hashlib.sha256(os.path.basename(os.path.dirname(os.path.abspath(a.resume))).encode()).hexdigest()[:12]
+            pool[rep["lane"]] = [x for x in pool[rep["lane"]] if x.get("id") != key]
+            pool[rep["lane"]].append({"id": key, "score": rep["score"], "scored": rep["fetched_at"][:10]})
             json.dump(pool, open(POOL, "w"), indent=1)
         # Never advise cutting a tool O*NET counts as common (Git), even when this lane's postings take it for granted
         common = [t["skill"] for t in onet_raw["tech_skills"] if t["posting_pct"] >= CUT_PCT]
