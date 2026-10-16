@@ -1,0 +1,16 @@
+{
+  "name": "trail-counter",
+  "version": "0.3.0",
+  "description": "Record and export trailhead hiker counts for Alder Bay Parks.",
+  "type": "module",
+  "bin": { "trail-counter": "src/cli.js" },
+  "scripts": {
+    "start": "node src/cli.js",
+    "smoke": "node src/cli.js add Ridge 12 2026-05-03 && node src/cli.js csv"
+  },
+  "trailCounter": {
+    "dataFile": "readings.json",
+    "pdfPageSize": "A4"
+  },
+  "license": "CC0-1.0"
+}
