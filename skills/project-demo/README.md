@@ -29,6 +29,10 @@ ok: 5 sections, 17 citations resolve in repo
 
 **On a real repo.** Run against [VetsAI](https://github.com/Vets-Who-Code/VetsAI) at `cd3f1c8` (a Streamlit chat app from the Vets Who Code projects catalog), the case study passed with 41 citations and reported three gaps the README hides: resume upload is promised in three places and listed as two dependencies, but neither library is in `requirements.txt` and the only input is the chat box; three advertised slash commands have no handler; and the README's `.env` setup doesn't match the code, which reads Streamlit secrets. Against [vets-who-code-app](https://github.com/Vets-Who-Code/vets-who-code-app) at `04b4f8a` (972 files, 15 merged PRs read), it passed with 33 citations and found the Dockerfile on Node 18 while the README, `.nvmrc` and `engines` say 24.
 
+**The demo video**, rendered from the VetsAI case study with `brand-explainer` and the neutral default pack (its CTA pointed at the repo), the free Kokoro voice `am_michael`, and no music. Seven frames, 167 spoken words, 64.5 s; every gate passed: copy rules, word budget, voice clips, captions, `hyperframes lint` and `check` (WCAG AA on all text), and render length. Frame 2 is the project's real screenshot; frame 4 is the six-line excerpt from `app.py:351-356`, verbatim.
+
+![VetsAI demo contact sheet](example/vetsai.jpg)
+
 ## What the gate refuses
 
 `scripts/check-study.ts` exits 1 when:
