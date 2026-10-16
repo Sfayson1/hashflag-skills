@@ -10,6 +10,7 @@ Skills and agents built at Vets Who Code that help nonprofits, job seekers and s
 | --- | --- |
 | [hashflagify](skills/hashflagify/SKILL.md) | Turns a user's `<login>/<login>` repo or an org's `.github` repo into a self-updating Mission Brief profile README in VWC colors. Live on [Vets-Who-Code](https://github.com/Vets-Who-Code) and [jeromehardaway](https://github.com/jeromehardaway). |
 | [resume-market-scorer](skills/resume-market-scorer/SKILL.md) | Scores a Software, Data, ML or AI Engineer resume 0–100 against the market for the target role: live job postings plus O*NET in-demand skills, with the BLS outlook as context. Ranks what to add, prove or cut, plus ATS wording fixes. Run it before editing a resume. |
+| [project-demo](skills/project-demo/SKILL.md) | Turns a portfolio repo (local path or GitHub URL) into a case study with a hero image and audio overview, plus a 60-second demo video in the builder's brand. Every feature cites a code line; README promises the code doesn't keep are called out, never repeated. |
 
 ## Install
 
