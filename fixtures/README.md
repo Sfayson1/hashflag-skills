@@ -23,8 +23,14 @@ The two brands are deliberately different in color, type, and voice so the same 
 | `nonprofit/donor-notes.md` | One month (September 2026) of rough staff notes, 5 stories | #6 |
 | `small-business/brand.md` | Lark & Lug brand: mission, colors, fonts, voice, copy rules | #3, #7 |
 | `small-business/service-page.md` | Services, hours, and a 7-question FAQ | #7 |
+| `resumes/marcus-oyelaran-software.txt` | Software engineer resume, Marine Corps veteran, 4 years in | resume-market-scorer (`software` lane) |
+| `resumes/priya-lindqvist-data.txt` | Data engineer resume, 8 years in | resume-market-scorer (`data` lane) |
 
 Issue key: #2 Blog to image and audio. #3 Brand pack and brand-locked explainer video. #5 Impact story video, audio and social images. #6 Donor update email with audio and images. #7 Product explainer video. #8 Repurpose one post into a full content kit.
+
+## Resumes
+
+The two resumes in `resumes/` are fictional people in Alder Bay. They exist to check that grading is consistent (`skills/resume-market-scorer/references/consistency.md`) and to exercise the grading rules on purpose: a role that ended just over five years ago, a skill that is both in an old role and in the skills list, bullets with a count but no outcome, and a tool that is only "learning". They never go in the reference pool. The scorer refuses files inside a git repo, so copy one to `~/resume-scores/<name>/resume.txt` before scoring it.
 
 ## Planted traps
 
