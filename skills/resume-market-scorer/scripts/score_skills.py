@@ -258,6 +258,10 @@ def main():
     onet = json.load(open(a.onet))
     check_onet(onet, p["lane"])
     vocab = json.load(open(os.path.join(REF, "skills_vocab.json")))
+    unknown = {s["skill"] for s in p["skills"]} - {v["skill"] for v in vocab["skills"]}
+    if unknown:
+        refuse(f"postings.json names skills the current vocabulary doesn't ({', '.join(sorted(unknown))}): "
+               "it was fetched with an older skills_vocab.json. Re-run fetch_postings.py.")
     onet_raw = onet
     onet, override = market_onet(onet, p, vocab)
 
