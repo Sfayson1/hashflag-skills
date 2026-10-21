@@ -185,10 +185,20 @@ with tempfile.TemporaryDirectory() as clean:
     old = p | {"fetched_at": (now - timedelta(days=15)).isoformat()}
     assert "days old" in run(old | {"digest": digest(old)}, clean).stderr
     assert "REFUSED: onet.json is 15-1252.00; the ml lane scores against 15-2051.00" in run(p | {"lane": "ml"} | {"digest": digest(p | {"lane": "ml"})}, clean).stderr
+    renamed = json.loads(json.dumps(p)); renamed["skills"][0]["skill"] = "Agents"; renamed["digest"] = digest(renamed)
+    assert "older skills_vocab.json" in run(renamed, clean).stderr  # fetched before a vocabulary rename
 
 with tempfile.TemporaryDirectory() as repo:  # a resume inside a git repo is refused
     os.makedirs(os.path.join(repo, ".git")); os.makedirs(os.path.join(repo, "people"))
     r = run(p, os.path.join(repo, "people"))
     assert r.returncode != 0 and "REFUSED:" in r.stderr and "~/resume-scores/" in r.stderr, r.stderr
+
+# grading consistency: compare_grades reads score_skills reports and measures only the grading step
+from compare_grades import compare
+rep = lambda grades, score: {"items": [{"skill": k, "grade": v} for k, v in grades.items()], "score": score}
+c = compare([rep({"Python": "proven", "Go": "none"}, 60.0), rep({"Python": "proven", "Go": "listed"}, 63.5),
+             rep({"Python": "proven", "Go": "none"}, 60.0)])
+assert c["split"] == {"Go": ["none", "listed", "none"]} and c["unanimous"] == 0.5 and c["spread"] == 3.5, c
+assert abs(c["pairwise"] - 4 / 6) < 1e-9, c["pairwise"]
 
 print("ok")
