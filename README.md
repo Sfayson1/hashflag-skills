@@ -2,7 +2,7 @@
 
 Skills and agents built at Vets Who Code that help nonprofits, job seekers and small businesses create and operate straight from the terminal.
 
-**Status:** two skills shipped; the content engines below are in planning. The work is tracked in [issues](https://github.com/Vets-Who-Code/hashflag-skills/issues).
+**Status:** three skills shipped; the content engines below are in planning. The work is tracked in [issues](https://github.com/Vets-Who-Code/hashflag-skills/issues).
 
 ## Skills
 
@@ -10,6 +10,7 @@ Skills and agents built at Vets Who Code that help nonprofits, job seekers and s
 | --- | --- |
 | [hashflagify](skills/hashflagify/SKILL.md) | Turns a user's `<login>/<login>` repo or an org's `.github` repo into a self-updating Mission Brief profile README in VWC colors. Live on [Vets-Who-Code](https://github.com/Vets-Who-Code) and [jeromehardaway](https://github.com/jeromehardaway). |
 | [resume-market-scorer](skills/resume-market-scorer/SKILL.md) | Scores a Software, Data, ML or AI Engineer resume 0–100 against the market for the target role: live job postings plus O*NET in-demand skills, with the BLS outlook as context. Ranks what to add, prove or cut, plus ATS wording fixes. Run it before editing a resume. |
+| [project-demo](skills/project-demo/SKILL.md) | Turns a portfolio repo (local path or GitHub URL) into a case study with a hero image and audio overview, plus a 60-second demo video in the builder's brand. Every feature cites a code line; README promises the code doesn't keep are called out, never repeated. |
 
 ## Install
 
@@ -32,7 +33,7 @@ The first set is content engines: one piece of writing in, images, audio and vid
 | [#1](https://github.com/Vets-Who-Code/hashflag-skills/issues/1) | Epic: content engine skills | [issue-1.md](docs/context/issue-1.md) |
 | [#2](https://github.com/Vets-Who-Code/hashflag-skills/issues/2) | Blog to image and audio | [issue-2.md](docs/context/issue-2.md) |
 | [#3](https://github.com/Vets-Who-Code/hashflag-skills/issues/3) | Brand pack and brand-locked explainer video | [issue-3.md](docs/context/issue-3.md) |
-| [#4](https://github.com/Vets-Who-Code/hashflag-skills/issues/4) | Project to demo video and case study for job seekers | [issue-4.md](docs/context/issue-4.md) |
+| [#4](https://github.com/Vets-Who-Code/hashflag-skills/issues/4) | Project to demo video and case study for job seekers. Shipped as [project-demo](skills/project-demo/SKILL.md). | [issue-4.md](docs/context/issue-4.md) |
 | [#5](https://github.com/Vets-Who-Code/hashflag-skills/issues/5) | Impact story video, audio and social images for nonprofits | [issue-5.md](docs/context/issue-5.md) |
 | [#6](https://github.com/Vets-Who-Code/hashflag-skills/issues/6) | Donor update email with audio and images | [issue-6.md](docs/context/issue-6.md) |
 | [#7](https://github.com/Vets-Who-Code/hashflag-skills/issues/7) | Product explainer video for small businesses | [issue-7.md](docs/context/issue-7.md) |

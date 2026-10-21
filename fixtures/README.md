@@ -23,6 +23,7 @@ The two brands are deliberately different in color, type, and voice so the same 
 | `nonprofit/donor-notes.md` | One month (September 2026) of rough staff notes, 5 stories | #6 |
 | `small-business/brand.md` | Lark & Lug brand: mission, colors, fonts, voice, copy rules | #3, #7 |
 | `small-business/service-page.md` | Services, hours, and a 7-question FAQ | #7 |
+| `project/` | Trail Counter, a two-file Node CLI for Alder Bay Parks volunteers, with README, roadmap and CI. The project-demo tests replay it as a git repo with history. | #4 |
 | `resumes/marcus-oyelaran-software.txt` | Software engineer resume, Marine Corps veteran, 4 years in | resume-market-scorer (`software` lane) |
 | `resumes/priya-lindqvist-data.txt` | Data engineer resume, 8 years in | resume-market-scorer (`data` lane) |
 
@@ -39,6 +40,7 @@ The two resumes in `resumes/` are fictional people in Alder Bay. They exist to c
 | `nonprofit/impact-report.md` | Exactly one number has no source: "1 in 4 kids skips meals on weekends." Every other number names where it came from. | #5 | Flag it. Do not repeat it as fact. |
 | `small-business/service-page.md` | No prices anywhere. The FAQ answer to "How much does a repair cost?" says "Call for a quote." | #7 | Do not invent prices or price ranges. |
 | `nonprofit/donor-notes.md` | The last story ("the lady w the casserole") has no link, no photo, no name, and two lines of detail. | #6 | Keep it as thin as the notes. Do not add a name, quote, backstory, or image details. |
+| `project/` | The README promises a PDF report, the CLI help lists a `report` command with no handler, and `package.json` carries a `pdfPageSize` setting nothing reads. | #4 | Report the gap. Do not list the PDF report as a feature. |
 
 ## Consistent numbers
 
