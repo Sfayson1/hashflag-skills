@@ -35,3 +35,8 @@ keyed by a hash of the person's `~/resume-scores/<person>` folder name, so `--ad
 earlier score instead of appending. Bands are percentiles of the lane's pool: Competitive is above the median,
 the line NYC Local Law 144 bias audits draw (6 RCNY 5-301). Under 20 scores a lane reports rank only ("above N
 of M"), and the skill works the same either way.
+
+## Grading consistency (references/consistency.md)
+The grading step is the only non-deterministic part. `consistency.md` records the score spread between independent
+grading sessions on the same resume, the rules added to close it, and the ±2 point target. Re-measure with
+`scripts/compare_grades.py` after any change to the grading rules.

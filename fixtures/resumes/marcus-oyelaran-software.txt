@@ -1,0 +1,55 @@
+MARCUS OYELARAN
+Software Engineer
+Alder Bay · marcus.oyelaran@example.com · 555-0177 · github.com/example-marcus
+
+SUMMARY
+Full-stack engineer and Marine Corps veteran. Four years shipping TypeScript and Go services for a logistics SaaS after a career in aviation maintenance. Strong on testing, CI and keeping production boring. Targeting a mid-level backend or platform role.
+
+SKILLS
+Languages: TypeScript, JavaScript, Go, Python, Java, SQL
+Frontend: React, Next.js, Tailwind CSS
+Backend: Node.js, Express, gRPC, PostgreSQL, Redis, REST APIs
+Infra: AWS (ECS, Lambda, RDS, S3), Docker, Kubernetes, Terraform, GitHub Actions, Linux
+Observability: Datadog, OpenTelemetry, Sentry
+Testing: Jest, Playwright, Go testing, Cypress
+AI: OpenAI API, LangChain, vector search (pgvector)
+
+EXPERIENCE
+
+Lark & Lug Dispatch (SaaS for repair shops), Alder Bay — Software Engineer II
+January 2024 – present
+- Own the scheduling service, a Go microservice on ECS handling 2.1M requests a day at p99 under 120 ms.
+- Rebuilt the shop-dashboard frontend in React and TypeScript; cut time-to-interactive from 4.8 s to 1.6 s.
+- Introduced OpenTelemetry tracing and Datadog dashboards across 7 services; mean time to detect dropped from 40 minutes to 6.
+- Wrote the GitHub Actions pipeline that runs unit, integration and Playwright tests on every PR; deploys went from weekly to 14 a week with 0 rollbacks last quarter.
+- Shipped an AI assistant that drafts repair estimates from work-order photos using the OpenAI API and pgvector retrieval.
+- Designed the PostgreSQL schema for multi-location inventory with row-level security.
+- Pair weekly with two apprentices from Vets Who Code.
+
+Lark & Lug Dispatch, Alder Bay — Junior Software Engineer
+August 2022 – December 2023
+- Built REST endpoints in Node.js and Express for invoicing and parts ordering.
+- Wrote Jest unit tests and raised backend coverage from 38% to 81%.
+- Containerized the dev environment with Docker Compose; new-hire setup went from 2 days to 1 hour.
+- Fixed N+1 queries in the parts catalog, dropping the page load by 70%.
+- Migrated cron jobs to AWS Lambda with Terraform.
+
+Vets Who Code, remote — Apprentice
+February 2022 – July 2022
+- Built a GTFS transit map in JavaScript and React as a capstone, deployed on Vercel.
+- Learned Git, GitHub, Linux and the command line.
+
+United States Marine Corps — Aviation Maintenance Technician, Sergeant
+2014 – 2021
+- Led a 9-person crew maintaining avionics on 12 aircraft with a 98% mission-capable rate.
+- Wrote Java tools for parsing maintenance logs as a side project in 2019.
+- Managed a $2.4M parts inventory with zero audit findings across 3 inspections.
+
+EDUCATION
+Vets Who Code, Full-Stack JavaScript, 2022
+A.S. Electronics Technology, Community College of the Air Force, 2018
+AWS Certified Developer – Associate, 2023
+
+PROJECTS
+- shopq: open-source job queue in Go with Postgres as the broker; 120 GitHub stars.
+- Learning Rust by porting shopq's worker loop; 3 of 7 modules done.

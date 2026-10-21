@@ -1,0 +1,53 @@
+PRIYA LINDQVIST
+Data Engineer
+Alder Bay · priya.lindqvist@example.com · 555-0142 · github.com/example-priya
+
+SUMMARY
+Data engineer with eight years building batch and streaming pipelines for logistics and transit. Comfortable owning a warehouse end to end: ingestion, modeling, quality checks, and the dashboards on top. Looking for a senior data engineering role on a platform team.
+
+SKILLS
+Languages: Python, SQL, Scala, Java, Bash
+Pipelines: Airflow, dbt, Spark, Kafka, Flink, Fivetran
+Warehouses and lakes: Snowflake, Databricks, Iceberg, PostgreSQL
+Cloud and infra: AWS, Terraform, Kubernetes, Docker, GitHub Actions
+Observability: Datadog, Great Expectations, Monte Carlo
+BI: Tableau, Looker
+
+EXPERIENCE
+
+Harbor Ledger Analytics, Alder Bay — Senior Data Engineer
+March 2023 – present
+- Rebuilt the nightly ETL into 140 dbt models on Snowflake, cutting the morning load from 6 hours to 55 minutes and reducing warehouse spend 31%.
+- Designed the dimensional data model for billing, shipments and carrier events used by 12 analysts and 3 product teams.
+- Wrote Python data quality checks in Great Expectations that run on every Airflow DAG; caught 47 schema breaks in the first year before they reached dashboards.
+- Set up Datadog monitors and PagerDuty alerts for pipeline latency and row-count drift.
+- Built a Kafka consumer in Python that streams carrier GPS events into Iceberg tables on S3.
+- Led the move from Redshift to Snowflake across 9 months with no reporting downtime.
+- Mentor two junior engineers; run the team's weekly SQL review.
+
+Northgate Freight Systems, Alder Bay — Data Engineer
+October 2019 – February 2023
+- Owned 60+ Airflow DAGs loading freight, customs and invoicing data into Redshift.
+- Migrated Spark jobs from on-prem Hadoop to Databricks on AWS, cutting the monthly compute bill by $18,000.
+- Wrote Scala Spark jobs for route-cost aggregation.
+- Provisioned the team's AWS infrastructure with Terraform: VPC, EMR, Redshift, IAM.
+- Deployed the dbt docs site and a Tableau workspace for the finance team's 40 dashboards.
+- Tuned Redshift sort and dist keys; the slowest finance query went from 90 seconds to 4.
+- Built a retrieval-augmented chatbot over the data catalog using OpenAI embeddings and LangChain so analysts could find tables by asking questions.
+
+Alder Bay Transit Authority — Data Analyst, then Junior Data Engineer
+June 2017 – September 2019
+- Wrote SQL reports on ridership and on-time performance for the operations director.
+- Automated the monthly ridership report in Python, saving the analytics team about 20 hours a month.
+- Built the authority's first Kafka pipeline to stream bus telemetry into PostgreSQL.
+- Maintained Salesforce reports for the rider-complaints team.
+- Modeled the fare-collection schema in PostgreSQL.
+
+EDUCATION
+B.S. Mathematics, Alder Bay State University, 2017
+Snowflake SnowPro Core Certification, 2024
+AWS Certified Data Analytics – Specialty, 2021
+
+PROJECTS
+- open-transit-feed: open-source Python package that validates GTFS feeds; 300+ GitHub stars, used by 4 transit agencies.
+- Wrote a Flink streaming demo for the Alder Bay Data Meetup (talk, 2025).
